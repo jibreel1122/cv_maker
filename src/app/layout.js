@@ -4,7 +4,7 @@ import Providers from "@/components/Providers";
 export const metadata = {
   title: "CV Maker | Free professional CV builder",
   description:
-    "Build a clean, ATS-friendly CV in minutes — free. Sign in with Google, Apple, or email and download a polished PDF accepted in Palestine and worldwide.",
+    "Build a clean, ATS-friendly CV in minutes — free. Sign in with your email and download a polished PDF accepted in Palestine and worldwide.",
 };
 
 export const viewport = {

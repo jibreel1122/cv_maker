@@ -1,17 +1,13 @@
 // NextAuth configuration — the single source of truth for authentication.
 //
 // Providers:
-//   - Credentials : email + password (used by the normal register/login flow
-//                   and by the seeded OWNER account).
-//   - Google      : enabled automatically when GOOGLE_CLIENT_ID/SECRET are set.
-//   - Apple       : enabled automatically when APPLE_ID/APPLE_CLIENT_SECRET set.
+//   - Credentials : email + password only. This is the ONLY sign-in method.
+//                   No external OAuth (Google/Apple) or third-party services.
 //
 // We use the JWT session strategy (required so the Credentials provider works)
-// together with the Prisma adapter, which still persists Google/Apple users.
+// together with the Prisma adapter.
 
 import CredentialsProvider from "next-auth/providers/credentials";
-import GoogleProvider from "next-auth/providers/google";
-import AppleProvider from "next-auth/providers/apple";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
@@ -28,11 +24,11 @@ const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 // Thrown error codes surfaced to the sign-in UI via `res.error`.
 export const AUTH_ERRORS = {
   RATE_LIMITED: "Too many attempts. Try again in 15 minutes.",
-  EMAIL_NOT_VERIFIED: "Please verify your email first. Check your inbox.",
+  EMAIL_NOT_VERIFIED: "Please verify your email first using the verification link shown after you registered.",
 };
 
 function buildProviders() {
-  const providers = [
+  return [
     CredentialsProvider({
       name: "Email",
       credentials: {
@@ -88,29 +84,6 @@ function buildProviders() {
       },
     }),
   ];
-
-  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-    providers.push(
-      GoogleProvider({
-        clientId: process.env.GOOGLE_CLIENT_ID,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        allowDangerousEmailAccountLinking: true,
-      })
-    );
-  }
-
-  const appleId = process.env.APPLE_CLIENT_ID || process.env.APPLE_ID;
-  if (appleId && process.env.APPLE_CLIENT_SECRET) {
-    providers.push(
-      AppleProvider({
-        clientId: appleId,
-        clientSecret: process.env.APPLE_CLIENT_SECRET,
-        allowDangerousEmailAccountLinking: true,
-      })
-    );
-  }
-
-  return providers;
 }
 
 export const authOptions = {

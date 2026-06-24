@@ -14,8 +14,8 @@ export default function PrivacyPage() {
       <Section heading="What we collect">
         <ul className="list-disc space-y-1 pl-5">
           <li>
-            <strong>Account data:</strong> your name and email address (and, if you
-            use Google or Apple sign-in, the basic profile info they provide).
+            <strong>Account data:</strong> your name, email address, and a securely
+            hashed password.
           </li>
           <li>
             <strong>CV data:</strong> the content you enter into your CVs —

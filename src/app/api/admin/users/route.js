@@ -20,7 +20,7 @@ export async function GET(request) {
   }
   if (onlyUnverified) {
     where.emailVerified = null;
-    where.passwordHash = { not: null }; // OAuth users are considered verified
+    where.passwordHash = { not: null }; // only email/password accounts
   }
 
   const users = await prisma.user.findMany({
@@ -50,7 +50,7 @@ export async function GET(request) {
       emailVerified: u.emailVerified,
       createdAt: u.createdAt,
       cvCount: u._count.cvs,
-      // "email" for credential accounts, otherwise the OAuth providers used.
+      // All accounts use email/password sign-in.
       providers: u.accounts.length ? u.accounts.map((a) => a.provider) : ["email"],
     })),
   });

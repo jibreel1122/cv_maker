@@ -12,8 +12,15 @@ const TTL_SECONDS = 60 * 60 * 24; // 24 hours
 
 function secret() {
   const s = process.env.NEXTAUTH_SECRET;
-  if (!s) throw new Error("NEXTAUTH_SECRET is not set.");
-  return s;
+  if (s) return s;
+  // Zero-config local development: fall back to a fixed dev key so token
+  // signing works out of the box without an .env file. NextAuth itself also
+  // tolerates a missing secret in development. In production a real
+  // NEXTAUTH_SECRET must be set.
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("NEXTAUTH_SECRET is not set.");
+  }
+  return "cv-maker-insecure-dev-secret";
 }
 
 function b64url(buf) {

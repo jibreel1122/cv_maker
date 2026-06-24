@@ -38,7 +38,7 @@ const features = [
 ];
 
 const steps = [
-  { n: "1", title: "Sign in", desc: "Use Google, Apple, or a quick email registration — all free." },
+  { n: "1", title: "Sign in", desc: "Create an account with your email in seconds — all free." },
   { n: "2", title: "Fill in your details", desc: "A guided, multi-step form takes you from contact info to certifications." },
   { n: "3", title: "Pick a template & download", desc: "Choose from several modern templates and export a polished PDF instantly." },
 ];

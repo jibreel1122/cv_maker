@@ -2,9 +2,8 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
-import { Loader2, Mail, Lock, User, CheckCircle2 } from "lucide-react";
+import { Loader2, Mail, Lock, User, CheckCircle2, Copy, ExternalLink } from "lucide-react";
 import AuthShell from "@/components/auth/AuthShell";
-import OAuthButtons from "@/components/auth/OAuthButtons";
 
 function RegisterInner() {
   const [name, setName] = useState("");
@@ -14,6 +13,8 @@ function RegisterInner() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+  const [verifyUrl, setVerifyUrl] = useState("");
+  const [copied, setCopied] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -28,6 +29,7 @@ function RegisterInner() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Could not create your account.");
+      setVerifyUrl(json.verifyUrl || "");
       setDone(true);
     } catch (e) {
       setError(e.message);
@@ -35,19 +37,57 @@ function RegisterInner() {
     }
   }
 
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(verifyUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard may be unavailable — the link is still visible to copy manually */
+    }
+  }
+
   if (done) {
     return (
-      <AuthShell title="Check your inbox">
-        <div className="flex flex-col items-center py-4 text-center">
+      <AuthShell title="Verify your email">
+        <div className="flex flex-col items-center py-2 text-center">
           <CheckCircle2 className="h-12 w-12 text-brand-600" />
-          <h2 className="mt-4 font-display text-lg font-bold text-ink">Almost there!</h2>
+          <h2 className="mt-4 font-display text-lg font-bold text-ink">Account created!</h2>
           <p className="mt-1 text-slate-600">
-            We sent a verification link to <strong>{email}</strong>. Click it to
-            activate your account, then sign in.
+            One last step — verify <strong>{email}</strong> to activate your account.
           </p>
-          <Link href="/login" className="btn-outline mt-6 text-sm">
-            Go to login
-          </Link>
+
+          {verifyUrl ? (
+            <div className="mt-6 w-full text-left">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Your verification link
+              </p>
+              <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2">
+                <code className="flex-1 truncate px-1 text-xs text-slate-600">{verifyUrl}</code>
+                <button
+                  type="button"
+                  onClick={copyLink}
+                  title="Copy link"
+                  className="rounded-lg p-1.5 text-slate-500 transition hover:bg-white hover:text-brand-700"
+                >
+                  <Copy className="h-4 w-4" />
+                </button>
+              </div>
+              {copied && <p className="mt-1 text-xs text-brand-600">Copied to clipboard.</p>}
+
+              <a href={verifyUrl} className="btn-primary mt-4 w-full text-sm">
+                <ExternalLink className="h-4 w-4" /> Verify my email now
+              </a>
+              <p className="mt-3 text-xs text-slate-400">
+                This is a local build — no email is sent. The link is also printed
+                in the server console.
+              </p>
+            </div>
+          ) : (
+            <Link href="/login" className="btn-outline mt-6 text-sm">
+              Go to login
+            </Link>
+          )}
         </div>
       </AuthShell>
     );
@@ -66,12 +106,6 @@ function RegisterInner() {
         </>
       }
     >
-      <OAuthButtons callbackUrl="/dashboard" />
-
-      <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
-        <span className="h-px flex-1 bg-slate-100" /> or with email <span className="h-px flex-1 bg-slate-100" />
-      </div>
-
       <form onSubmit={handleSubmit} className="grid gap-4">
         <label className="block">
           <span className="field-label">Full name</span>
