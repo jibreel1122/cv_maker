@@ -1,14 +1,13 @@
 "use client";
 
-// حقول إدخال صغيرة قابلة لإعادة الاستخدام في فورم البناء.
+// Small reusable input fields used across the CV builder form.
 
-export function Field({ label, value, onChange, placeholder, type = "text", dir }) {
+export function Field({ label, value, onChange, placeholder, type = "text" }) {
   return (
     <label className="block">
       <span className="field-label">{label}</span>
       <input
         type={type}
-        dir={dir}
         className="field-input"
         value={value || ""}
         placeholder={placeholder}
@@ -35,10 +34,10 @@ export function TextArea({ label, value, onChange, placeholder, rows = 3 }) {
 
 export function Checkbox({ label, checked, onChange }) {
   return (
-    <label className="flex cursor-pointer items-center gap-2 text-sm text-cream/90">
+    <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
       <input
         type="checkbox"
-        className="h-4 w-4 accent-gold"
+        className="h-4 w-4 accent-brand-600"
         checked={!!checked}
         onChange={(e) => onChange(e.target.checked)}
       />

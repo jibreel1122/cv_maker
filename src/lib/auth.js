@@ -1,90 +1,128 @@
-// مصادقة الأدمن: كوكي جلسة موقّعة (HMAC-SHA256) بدون مكتبات ثقيلة.
-// نستخدم Web Crypto (crypto.subtle) كي يعمل نفس الكود في الـ middleware
-// (Edge runtime) وفي مسارات الـ API (Node runtime).
+// NextAuth configuration — the single source of truth for authentication.
+//
+// Providers:
+//   - Credentials : email + password (used by the normal register/login flow
+//                   and by the seeded OWNER account).
+//   - Google      : enabled automatically when GOOGLE_CLIENT_ID/SECRET are set.
+//   - Apple       : enabled automatically when APPLE_ID/APPLE_CLIENT_SECRET set.
+//
+// We use the JWT session strategy (required so the Credentials provider works)
+// together with the Prisma adapter, which still persists Google/Apple users.
 
-export const SESSION_COOKIE = "cverti_admin";
-const SESSION_TTL_SECONDS = 60 * 60 * 8; // 8 ساعات
+import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
+import AppleProvider from "next-auth/providers/apple";
+import { PrismaAdapter } from "@next-auth/prisma-adapter";
+import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/prisma";
 
-function getSecret() {
-  const secret = process.env.SESSION_SECRET;
-  if (!secret) {
-    throw new Error("SESSION_SECRET غير معرّف في متغيرات البيئة.");
+// Roles, ordered from least to most privileged.
+export const ROLES = ["USER", "ADMIN", "OWNER"];
+
+function buildProviders() {
+  const providers = [
+    CredentialsProvider({
+      name: "Email",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        const email = credentials?.email?.trim().toLowerCase();
+        const password = credentials?.password;
+        if (!email || !password) return null;
+
+        const user = await prisma.user.findUnique({ where: { email } });
+        if (!user || !user.passwordHash) return null;
+
+        const ok = await bcrypt.compare(password, user.passwordHash);
+        if (!ok) return null;
+
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          image: user.image,
+          role: user.role,
+        };
+      },
+    }),
+  ];
+
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    providers.push(
+      GoogleProvider({
+        clientId: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        allowDangerousEmailAccountLinking: true,
+      })
+    );
   }
-  return secret;
-}
 
-function toBase64Url(bytes) {
-  let binary = "";
-  const arr = new Uint8Array(bytes);
-  for (let i = 0; i < arr.length; i++) binary += String.fromCharCode(arr[i]);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-function fromBase64Url(str) {
-  const padded = str.replace(/-/g, "+").replace(/_/g, "/");
-  const binary = atob(padded);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
-
-async function hmac(message) {
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(getSecret()),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(message));
-  return toBase64Url(sig);
-}
-
-// مقارنة زمن-ثابت لتفادي تسريب التوقيت.
-function timingSafeEqual(a, b) {
-  if (a.length !== b.length) return false;
-  let result = 0;
-  for (let i = 0; i < a.length; i++) result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return result === 0;
-}
-
-// ينشئ توكن جلسة موقّعًا: payload.signature
-export async function createSessionToken() {
-  const payload = {
-    role: "admin",
-    exp: Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS,
-  };
-  const payloadB64 = toBase64Url(new TextEncoder().encode(JSON.stringify(payload)));
-  const signature = await hmac(payloadB64);
-  return `${payloadB64}.${signature}`;
-}
-
-// يتحقق من صحة التوكن وصلاحيته.
-export async function verifySessionToken(token) {
-  if (!token || typeof token !== "string" || !token.includes(".")) return false;
-  const [payloadB64, signature] = token.split(".");
-  if (!payloadB64 || !signature) return false;
-
-  const expected = await hmac(payloadB64);
-  if (!timingSafeEqual(signature, expected)) return false;
-
-  try {
-    const payload = JSON.parse(new TextDecoder().decode(fromBase64Url(payloadB64)));
-    if (payload.role !== "admin") return false;
-    if (!payload.exp || payload.exp < Math.floor(Date.now() / 1000)) return false;
-    return true;
-  } catch {
-    return false;
+  if (process.env.APPLE_ID && process.env.APPLE_CLIENT_SECRET) {
+    providers.push(
+      AppleProvider({
+        clientId: process.env.APPLE_ID,
+        clientSecret: process.env.APPLE_CLIENT_SECRET,
+        allowDangerousEmailAccountLinking: true,
+      })
+    );
   }
+
+  return providers;
 }
 
-export function sessionCookieOptions() {
-  return {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: SESSION_TTL_SECONDS,
-  };
+export const authOptions = {
+  adapter: PrismaAdapter(prisma),
+  session: { strategy: "jwt" },
+  pages: {
+    signIn: "/login",
+  },
+  providers: buildProviders(),
+  callbacks: {
+    async jwt({ token, user }) {
+      // On initial sign-in `user` is present; persist the id on the token.
+      if (user) {
+        token.uid = user.id;
+      }
+      // Always refresh the role from the database so role changes made by an
+      // admin take effect on the user's next request without re-login.
+      if (token.uid) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.uid },
+          select: { role: true, name: true, image: true },
+        });
+        if (dbUser) {
+          token.role = dbUser.role;
+          token.name = dbUser.name;
+          token.picture = dbUser.image;
+        }
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = token.uid;
+        session.user.role = token.role || "USER";
+      }
+      return session;
+    },
+  },
+};
+
+export function isAdmin(role) {
+  return role === "ADMIN" || role === "OWNER";
+}
+
+export function isOwner(role) {
+  return role === "OWNER";
+}
+
+// Which roles a given actor is allowed to assign.
+//   OWNER  → can set any role.
+//   ADMIN  → can only toggle between USER and ADMIN.
+export function assignableRoles(actorRole) {
+  if (actorRole === "OWNER") return ["USER", "ADMIN", "OWNER"];
+  if (actorRole === "ADMIN") return ["USER", "ADMIN"];
+  return [];
 }

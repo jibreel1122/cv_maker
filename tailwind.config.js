@@ -7,36 +7,39 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // هوية بصرية: كحلي عميق + ذهبي/برونزي خافت + كريمي + رمادي أزرق
-        midnight: {
-          DEFAULT: "#0B1B3A",
-          deep: "#070F26",
-          soft: "#13264D",
+        // Modern green identity: emerald brand + clean slate neutrals.
+        brand: {
+          50: "#ecfdf5",
+          100: "#d1fae5",
+          200: "#a7f3d0",
+          300: "#6ee7b7",
+          400: "#34d399",
+          500: "#10b981",
+          600: "#059669",
+          700: "#047857",
+          800: "#065f46",
+          900: "#064e3b",
         },
-        gold: {
-          DEFAULT: "#C9A227",
-          soft: "#D8B65A",
-        },
-        cream: "#F6F3EC",
-        slateblue: "#5B6B86",
+        ink: "#0f172a",
+        muted: "#64748b",
+        canvas: "#f4faf7",
       },
       fontFamily: {
-        display: ["var(--font-display)", "Cairo", "serif"],
-        body: ["var(--font-body)", "Tajawal", "sans-serif"],
+        display: ["var(--font-display)", "Poppins", "system-ui", "sans-serif"],
+        body: ["var(--font-body)", "Inter", "system-ui", "sans-serif"],
+      },
+      boxShadow: {
+        soft: "0 10px 30px -12px rgba(6, 95, 70, 0.18)",
+        card: "0 1px 3px rgba(15, 23, 42, 0.06), 0 10px 30px -18px rgba(15, 23, 42, 0.25)",
       },
       keyframes: {
         "fade-up": {
           "0%": { opacity: "0", transform: "translateY(12px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
-        shimmer: {
-          "0%": { backgroundPosition: "-200% 0" },
-          "100%": { backgroundPosition: "200% 0" },
-        },
       },
       animation: {
         "fade-up": "fade-up 0.6s ease-out both",
-        shimmer: "shimmer 3s linear infinite",
       },
     },
   },

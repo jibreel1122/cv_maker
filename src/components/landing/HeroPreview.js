@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import CVPreview from "@/components/CVPreview";
-import { sampleCvDataAr } from "@/lib/cvDefaults";
+import { sampleCvData } from "@/lib/cvDefaults";
 
-// يبني نسخة جزئية من بيانات العيّنة حسب نسبة التقدّم لمحاكاة الكتابة الحية.
+// Builds a partial copy of the sample data based on progress to mimic live typing.
 function partial(progress) {
-  const s = sampleCvDataAr;
+  const s = sampleCvData;
   const data = {
     personal: { ...s.personal },
     summary: "",
@@ -17,7 +17,6 @@ function partial(progress) {
     certifications: [],
   };
 
-  // 0 → 1: اكتب الاسم/المسمى أولًا، ثم الملخص، ثم الأقسام تباعًا
   if (progress < 0.15) {
     const reveal = Math.floor((s.personal.fullName.length * progress) / 0.15);
     data.personal.fullName = s.personal.fullName.slice(0, reveal);
@@ -91,9 +90,9 @@ export default function HeroPreview() {
         <span className="h-3 w-3 rounded-full bg-[#ff5f56]" />
         <span className="h-3 w-3 rounded-full bg-[#ffbd2e]" />
         <span className="h-3 w-3 rounded-full bg-[#27c93f]" />
-        <span className="mr-auto text-xs text-slateblue">معاينة حية</span>
+        <span className="ml-auto text-xs text-slate-400">Live preview</span>
       </div>
-      <CVPreview cvData={data} templateId="classic" language="ar" />
+      <CVPreview cvData={data} templateId="modern" />
     </div>
   );
 }

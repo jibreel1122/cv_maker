@@ -1,10 +1,11 @@
-// Prisma schema لمنصة "سيرتي".
+// Prisma schema for the CV Maker platform.
 //
-// ملاحظة مهمة للنشر:
-// أثناء التطوير نستخدم SQLite (provider = "sqlite").
-// قبل النشر على منصات serverless مثل Vercel — التي لا تحافظ على ملف SQLite
-// بين الطلبات — بدّل provider إلى "postgresql" وحدّث DATABASE_URL إلى
-// قاعدة Postgres (مثل Neon أو Supabase). الموديل أدناه متوافق مع كليهما.
+// Deployment note:
+//   During development we use SQLite (provider = "sqlite").
+//   Before deploying to a serverless host (e.g. Vercel) — which does not keep
+//   the SQLite file between requests — switch `provider` to "postgresql" and
+//   point DATABASE_URL at a managed Postgres database (Neon / Supabase).
+//   The models below are compatible with both.
 
 generator client {
   provider = "prisma-client-js"
@@ -15,20 +16,83 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Order {
-  id              String   @id @default(cuid())
-  stripeSessionId String   @unique
-  status          String   @default("pending") // pending | paid | failed
-  amount          Int // بالسنت
-  currency        String   @default("usd")
-  templateId      String
-  language        String // "ar" | "en"
-  cvData          String // JSON نصّي يحوي كامل بيانات السيرة الذاتية
-  customerName    String? // مستخرج من cvData لسهولة العرض في لوحة الأدمن
-  customerEmail   String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+// ---------------------------------------------------------------------------
+// Roles: USER (default), ADMIN, OWNER.
+//   - USER  : can create and manage their own CVs.
+//   - ADMIN : can view all users and CVs, and promote/demote between USER/ADMIN.
+//   - OWNER : full control, including granting/revoking ADMIN and OWNER.
+// Stored as a plain string so the schema stays portable across SQLite/Postgres.
+// ---------------------------------------------------------------------------
 
-  @@index([status])
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String? // null for accounts created purely via Google/Apple
+  role          String    @default("USER")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts Account[]
+  sessions Session[]
+  cvs      CV[]
+
+  @@index([role])
+}
+
+// NextAuth adapter models -----------------------------------------------------
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// CVs ------------------------------------------------------------------------
+
+model CV {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title      String   @default("Untitled CV")
+  templateId String   @default("classic")
+  data       String // JSON string holding the full CV contents
+  fullName   String? // denormalised from data for quick listing in the admin panel
+  jobTitle   String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
   @@index([createdAt])
 }

@@ -1,30 +1,23 @@
-import { NextResponse } from "next/server";
-import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
+// Route protection via NextAuth.
+//   - /dashboard and /build require any signed-in user.
+//   - /admin requires the ADMIN or OWNER role.
+// Unauthenticated users are redirected to /login.
 
-// يحمي مسارات /admin/* (عدا /admin/login). يتحقق من كوكي الجلسة الموقّعة،
-// ويعيد التوجيه لصفحة الدخول إن لم تكن صالحة.
-export async function middleware(request) {
-  const { pathname } = request.nextUrl;
+import { withAuth } from "next-auth/middleware";
 
-  // نسمح بصفحة الدخول دون تحقق.
-  if (pathname.startsWith("/admin/login")) {
-    return NextResponse.next();
-  }
-
-  if (pathname.startsWith("/admin")) {
-    const token = request.cookies.get(SESSION_COOKIE)?.value;
-    const valid = await verifySessionToken(token);
-    if (!valid) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/admin/login";
-      url.searchParams.set("from", pathname);
-      return NextResponse.redirect(url);
-    }
-  }
-
-  return NextResponse.next();
-}
+export default withAuth({
+  pages: { signIn: "/login" },
+  callbacks: {
+    authorized: ({ token, req }) => {
+      const { pathname } = req.nextUrl;
+      if (pathname.startsWith("/admin")) {
+        return token?.role === "ADMIN" || token?.role === "OWNER";
+      }
+      return !!token;
+    },
+  },
+});
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: ["/dashboard/:path*", "/build/:path*", "/admin/:path*"],
 };

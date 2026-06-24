@@ -1,11 +1,10 @@
-// توليد PDF عبر Puppeteer (headless Chrome).
+// PDF generation via Puppeteer (headless Chrome).
 //
-// نعرض نفس HTML الخاص بالمعاينة ونحوّله إلى PDF — ما يضمن ظهور النص العربي
-// (التشكيل/الربط بين الحروف) بشكل سليم تمامًا كما في المتصفح. لا نستخدم
-// مكتبات مثل jsPDF/react-pdf لأنها لا تدعم تشكيل العربية بشكل صحيح.
+// We render the exact same HTML used for the live preview and convert it to a
+// PDF, which guarantees the file matches what the user sees in the browser.
 //
-// ملاحظة نشر: على بيئات serverless (Vercel) استبدل puppeteer بـ
-// puppeteer-core + @sparticuz/chromium (موضّح في README).
+// Deployment note: on serverless platforms (e.g. Vercel) replace `puppeteer`
+// with `puppeteer-core` + `@sparticuz/chromium` (see the README).
 
 import puppeteer from "puppeteer";
 
@@ -24,7 +23,7 @@ export async function htmlToPdf(html) {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "networkidle0", timeout: 30000 });
 
-    // ننتظر تحميل الخطوط لضمان عدم ظهور خط بديل في الـ PDF.
+    // Wait for web fonts so the PDF does not fall back to a default font.
     await page.evaluateHandle("document.fonts.ready");
 
     const pdf = await page.pdf({
