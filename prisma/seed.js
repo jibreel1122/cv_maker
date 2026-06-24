@@ -1,47 +1,194 @@
-// Seeds the first OWNER account from environment variables.
+// Seeds the database for local development. Safe to run repeatedly — every
+// account is upserted and sample CVs are only created if the demo user has none.
 //
-//   OWNER_EMAIL / OWNER_PASSWORD / OWNER_NAME
+//   - OWNER account (login: jibreelebornat@gmail.com / Miskbo123 by default).
+//   - A couple of pre-verified demo users.
+//   - A couple of sample CVs for one of the demo users.
 //
-// Running it again is safe: it upserts the account, refreshes the password,
-// and makes sure the role is OWNER. Run with:  npm run db:seed
+// No environment variables are required; values fall back to sensible local
+// defaults. Override with OWNER_EMAIL / OWNER_PASSWORD / OWNER_NAME if you like.
+//
+// Run automatically before `npm run dev`, or manually with:  npm run db:seed
 
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
 
 // Load .env.local then .env (mirrors how Next.js resolves variables locally).
-try {
-  require("fs")
-    .readFileSync(require("path").join(__dirname, "..", ".env.local"), "utf8")
-    .split("\n")
-    .forEach((line) => {
-      const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
-      if (m && !process.env[m[1]]) {
-        process.env[m[1]] = m[2].replace(/^["']|["']$/g, "");
-      }
-    });
-} catch {
-  // .env.local is optional.
+for (const file of [".env.local", ".env"]) {
+  try {
+    require("fs")
+      .readFileSync(require("path").join(__dirname, "..", file), "utf8")
+      .split("\n")
+      .forEach((line) => {
+        const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+        if (m && !process.env[m[1]]) {
+          process.env[m[1]] = m[2].replace(/^["']|["']$/g, "");
+        }
+      });
+  } catch {
+    // optional
+  }
 }
 
 const prisma = new PrismaClient();
 
-async function main() {
-  const email = (process.env.OWNER_EMAIL || "jibreelebornat@gmail.com").trim().toLowerCase();
-  const password = process.env.OWNER_PASSWORD || "Miskbo123";
-  const name = process.env.OWNER_NAME || "Owner";
+function meta(data) {
+  const p = (data && data.personal) || {};
+  return { fullName: p.fullName || null, jobTitle: p.jobTitle || null };
+}
 
-  // Salt rounds = 12 (>= 12).
-  const passwordHash = await bcrypt.hash(password, 12);
+// Demo CV content (kept inline so the CommonJS seed stays dependency-free).
+const sampleCvs = [
+  {
+    title: "Frontend Developer CV",
+    templateId: "modern",
+    data: {
+      personal: {
+        fullName: "Layla A. Khalil",
+        jobTitle: "Frontend Developer",
+        email: "layla.khalil@email.com",
+        phone: "+970 59 000 0000",
+        location: "Ramallah, Palestine",
+        linkedin: "linkedin.com/in/layla-khalil",
+        website: "laylakhalil.dev",
+      },
+      summary:
+        "Frontend developer with 4 years of experience building fast, accessible web apps with React and Next.js.",
+      experiences: [
+        {
+          jobTitle: "Senior Frontend Developer",
+          company: "Tech Solutions",
+          location: "Ramallah",
+          startDate: "2022",
+          endDate: "",
+          current: true,
+          bullets: [
+            "Led a rebuild of the main product UI, improving load speed by 40%.",
+            "Mentored a team of 3 developers and set code-review standards.",
+          ],
+        },
+      ],
+      education: [
+        {
+          degree: "BSc in Software Engineering",
+          institution: "Birzeit University",
+          location: "Birzeit",
+          startDate: "2015",
+          endDate: "2019",
+          details: "",
+        },
+      ],
+      skills: ["JavaScript", "React", "Next.js", "TypeScript", "Tailwind CSS", "Git"],
+      languages: [
+        { name: "Arabic", level: "Native" },
+        { name: "English", level: "Fluent" },
+      ],
+      certifications: [{ name: "Meta Front-End Developer", issuer: "Coursera", date: "2023" }],
+    },
+  },
+  {
+    title: "Project Manager CV",
+    templateId: "professional",
+    data: {
+      personal: {
+        fullName: "Layla A. Khalil",
+        jobTitle: "Project Manager",
+        email: "layla.khalil@email.com",
+        phone: "+970 59 000 0000",
+        location: "Ramallah, Palestine",
+        linkedin: "linkedin.com/in/layla-khalil",
+        website: "",
+      },
+      summary:
+        "Detail-oriented project manager coordinating cross-functional software teams to deliver on time and on budget.",
+      experiences: [
+        {
+          jobTitle: "Project Manager",
+          company: "Digital Agency",
+          location: "Nablus",
+          startDate: "2021",
+          endDate: "",
+          current: true,
+          bullets: ["Managed 10+ client projects end-to-end using Agile methods."],
+        },
+      ],
+      education: [
+        {
+          degree: "BSc in Software Engineering",
+          institution: "Birzeit University",
+          location: "Birzeit",
+          startDate: "2015",
+          endDate: "2019",
+          details: "",
+        },
+      ],
+      skills: ["Agile", "Scrum", "Jira", "Stakeholder Management", "Roadmapping"],
+      languages: [
+        { name: "Arabic", level: "Native" },
+        { name: "English", level: "Fluent" },
+      ],
+      certifications: [],
+    },
+  },
+];
+
+async function upsertUser({ email, name, password, role }) {
+  const passwordHash = await bcrypt.hash(password, 12); // salt rounds >= 12
   const now = new Date();
-
-  const user = await prisma.user.upsert({
+  return prisma.user.upsert({
     where: { email },
-    // The owner is pre-verified so they can sign in immediately.
-    update: { role: "OWNER", passwordHash, name, emailVerified: now },
-    create: { email, name, passwordHash, role: "OWNER", emailVerified: now },
+    // Pre-verified so they can sign in immediately for local testing.
+    update: { role, name, emailVerified: now },
+    create: { email, name, passwordHash, role, emailVerified: now },
   });
+}
 
-  console.log(`✔ Owner account ready: ${user.email} (role: ${user.role})`);
+async function main() {
+  // 1) Owner account.
+  const ownerEmail = (process.env.OWNER_EMAIL || "jibreelebornat@gmail.com").trim().toLowerCase();
+  const owner = await upsertUser({
+    email: ownerEmail,
+    name: process.env.OWNER_NAME || "Jibreel Ebornat",
+    password: process.env.OWNER_PASSWORD || "Miskbo123",
+    role: "OWNER",
+  });
+  console.log(`✔ Owner ready: ${owner.email} (${owner.role})`);
+
+  // 2) Demo users.
+  const demo = await upsertUser({
+    email: "demo@cvmaker.local",
+    name: "Demo User",
+    password: "Demo1234",
+    role: "USER",
+  });
+  await upsertUser({
+    email: "admin@cvmaker.local",
+    name: "Admin User",
+    password: "Admin1234",
+    role: "ADMIN",
+  });
+  console.log("✔ Demo users ready: demo@cvmaker.local / admin@cvmaker.local");
+
+  // 3) Sample CVs for the demo user — only if they have none yet.
+  const existingCvs = await prisma.cV.count({ where: { userId: demo.id } });
+  if (existingCvs === 0) {
+    for (const cv of sampleCvs) {
+      const m = meta(cv.data);
+      await prisma.cV.create({
+        data: {
+          userId: demo.id,
+          title: cv.title,
+          templateId: cv.templateId,
+          data: JSON.stringify(cv.data),
+          fullName: m.fullName,
+          jobTitle: m.jobTitle,
+        },
+      });
+    }
+    console.log(`✔ Created ${sampleCvs.length} sample CVs for demo@cvmaker.local`);
+  } else {
+    console.log("• Demo user already has CVs — skipping sample CV creation.");
+  }
 }
 
 main()

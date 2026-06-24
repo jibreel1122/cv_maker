@@ -1,16 +1,18 @@
 # CV Maker — free professional CV builder
 
-A free web app where users sign in (Google, Apple, or email), fill in a guided
+A free web app where users sign in with **email & password**, fill in a guided
 multi-step form, watch a **live preview** of their CV, choose from several
 modern **ATS-friendly** templates, and download a polished **PDF** — in English,
 accepted in Palestine and worldwide. It includes a full **admin dashboard** with
 user management, role assignment, and visibility into every CV.
 
-> There are **no payments**. The whole product is free.
+> There are **no payments** and **no external services**. The whole product is
+> free and runs **100% locally** — no API keys, OAuth providers, email servers,
+> or third-party accounts required.
 
 ## Features
 
-- **Authentication** — Google, Apple, and email/password (NextAuth).
+- **Authentication** — email/password only (NextAuth). No external OAuth.
 - **Roles** — `USER`, `ADMIN`, `OWNER`. The owner/admin can promote or demote
   users from the dashboard.
 - **CV builder** — multi-step form with a live, pixel-accurate preview.
@@ -32,45 +34,39 @@ user management, role assignment, and visibility into every CV.
 
 ## Getting started
 
+No configuration is required — just install and run:
+
 ```bash
-# 1) Install dependencies
 npm install
-
-# 2) Configure environment variables
-cp .env.example .env.local
-#   - Set NEXTAUTH_SECRET (see "Generating secrets" below)
-#   - Optionally add Google / Apple OAuth keys and SMTP settings
-#   - OWNER_EMAIL / OWNER_PASSWORD seed the first owner account
-
-# 3) Create the database schema
-npm run db:push
-
-# 4) Seed the owner/admin account
-npm run db:seed
-
-# 5) Run
 npm run dev          # http://localhost:3000
 ```
 
-### Generating secrets
+`npm run dev` automatically generates the Prisma client, creates the local
+SQLite database (`prisma/dev.db`), and seeds the owner + demo accounts before
+starting Next.js. There are **no keys to set** and **nothing to copy** — the
+non-secret `DATABASE_URL` ships in the committed `.env`, and a development
+`NEXTAUTH_SECRET` fallback is used automatically.
 
-```bash
-# Generate a strong NEXTAUTH_SECRET
-openssl rand -base64 32
-```
+> Want to customise? Copy `.env.example` to `.env.local` and set
+> `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, or override the seeded owner credentials.
 
-`NEXTAUTH_SECRET` signs both the session cookies and the email-verification
-tokens — set a strong, unique value in every environment.
+### Seeded accounts
 
-> **Email in development:** if no `SMTP_*` variables are set, verification
-> emails are not sent — the verification link is printed to the server console
-> instead, so you can still complete the flow locally.
+| Account | Email | Password | Role |
+| ------- | ----- | -------- | ---- |
+| Owner | `jibreelebornat@gmail.com` | `Miskbo123` | OWNER |
+| Admin | `admin@cvmaker.local` | `Admin1234` | ADMIN |
+| Demo user (has 2 sample CVs) | `demo@cvmaker.local` | `Demo1234` | USER |
 
-### Owner / admin account
+All seeded accounts are pre-verified. Sign in at `/login`; the owner/admin can
+open `/admin`. The owner can grant the `ADMIN` or `OWNER` role to any user.
 
-The first owner is seeded from `OWNER_EMAIL` / `OWNER_PASSWORD` in `.env.local`
-(defaults to the project owner's credentials). Sign in at `/login` and open
-`/admin`. The owner can grant the `ADMIN` or `OWNER` role to any user.
+### Email verification (local mock)
+
+There is **no email server**. When a new user registers, the verification link
+is **shown directly on screen** (and printed to the server console) — click it
+to verify the account immediately. The backend still validates the signed,
+24-hour token and sets `emailVerified` before the account can log in.
 
 | Role  | Can do                                                            |
 | ----- | ---------------------------------------------------------------- |
@@ -78,26 +74,12 @@ The first owner is seeded from `OWNER_EMAIL` / `OWNER_PASSWORD` in `.env.local`
 | ADMIN | Everything above + view all users/CVs, toggle USER ↔ ADMIN       |
 | OWNER | Everything above + grant/revoke OWNER, delete users              |
 
-## Google & Apple sign-in
-
-Both activate automatically once their keys are present in the environment:
-
-- **Google** — create OAuth credentials in Google Cloud Console and set
-  `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`. Redirect URI:
-  `<NEXTAUTH_URL>/api/auth/callback/google`.
-- **Apple** — from your Apple Developer account (Sign in with Apple), set
-  `APPLE_ID` and `APPLE_CLIENT_SECRET` (the signed client-secret JWT). Redirect
-  URI: `<NEXTAUTH_URL>/api/auth/callback/apple`.
-
-When neither is configured, the email/password flow still works and the sign-in
-pages simply hide the social buttons.
-
 ## Project structure
 
 ```
 prisma/
   schema.prisma        # User, Account, Session, VerificationToken, CV, AuditLog
-  seed.js              # seeds the OWNER account
+  seed.js              # seeds the OWNER + demo accounts and sample CVs
 src/
   app/
     page.js            # landing page
@@ -119,7 +101,7 @@ src/
     auth.js            # NextAuth config + role helpers
     session.js         # server-side session/role guards
     tokens.js          # signed email-verification tokens
-    mailer.js          # SMTP / nodemailer (console fallback)
+    mailer.js          # local mock — builds & logs the verification link (no email sent)
     rateLimit.js       # in-memory rate limiter
     audit.js           # audit logging
     security.js        # same-origin (CSRF) check
@@ -133,9 +115,10 @@ src/
 ## Security & Privacy
 
 - **Email verification.** Email/password sign-ups must verify their address
-  before they can log in. Registration sends a signed, 24-hour verification
-  link; unverified accounts see *"Please verify your email first."* Owners/admins
-  can manually verify or remove unverified accounts from the admin dashboard.
+  before they can log in. Registration generates a signed, 24-hour verification
+  link shown on screen (no email is sent in this local build); unverified
+  accounts are blocked at login. Owners/admins can manually verify or remove
+  unverified accounts from the admin dashboard.
 - **Password hashing.** Passwords are hashed with bcrypt (12 salt rounds). Plain
   passwords are never stored or logged.
 - **CSRF & cookies.** NextAuth session cookies are `HttpOnly`, `SameSite=Lax`,
@@ -143,8 +126,8 @@ src/
   custom state-changing routes additionally enforce a same-origin check.
 - **Rate limiting.** Login is limited to 5 failed attempts per IP per 15 minutes;
   registration to 3 accounts per IP per hour. The limiter is in-memory (per
-  instance) — for multi-instance/serverless deployments, back it with a shared
-  store such as Upstash Redis.
+  instance) with no external dependency — ideal for local development and
+  single-instance deployments.
 - **Audit logs.** Logins (success/failure), role changes, and account deletions
   are recorded in an `AuditLog` table, viewable by the owner at
   `/admin/audit-logs`. Audit logs are retained for **90 days**.
@@ -162,4 +145,6 @@ src/
    `@sparticuz/chromium` in `src/lib/pdf.js`. On a regular Node host (Render,
    Railway, a VPS, Docker) the current setup works as-is.
 3. **Environment** — set `NEXTAUTH_URL` to the production URL and a strong
-   `NEXTAUTH_SECRET`, plus any OAuth keys.
+   `NEXTAUTH_SECRET` (`openssl rand -base64 32`). In production the on-screen
+   verification link is **not** returned by the API, so wire up a real email
+   transport in `src/lib/mailer.js` if you deploy publicly.

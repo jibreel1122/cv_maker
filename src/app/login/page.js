@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { Loader2, Mail, Lock } from "lucide-react";
 import AuthShell from "@/components/auth/AuthShell";
-import OAuthButtons from "@/components/auth/OAuthButtons";
 
 function LoginInner() {
   const router = useRouter();
@@ -57,12 +56,6 @@ function LoginInner() {
         </>
       }
     >
-      <OAuthButtons callbackUrl={callbackUrl} />
-
-      <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
-        <span className="h-px flex-1 bg-slate-100" /> or with email <span className="h-px flex-1 bg-slate-100" />
-      </div>
-
       <form onSubmit={handleSubmit} className="grid gap-4">
         <label className="block">
           <span className="field-label">Email</span>

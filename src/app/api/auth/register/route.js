@@ -12,8 +12,8 @@ export const runtime = "nodejs";
 const REG_MAX = 3;
 const REG_WINDOW_MS = 60 * 60 * 1000;
 
-// Creates a new (unverified) USER account from email + password and sends a
-// verification email. OAuth sign-ups (Google / Apple) never hit this route.
+// Creates a new (unverified) USER account from email + password and returns a
+// verification link (shown on screen in this local build; no email is sent).
 export async function POST(request) {
   if (!sameOrigin(request)) {
     return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
@@ -67,7 +67,14 @@ export async function POST(request) {
   });
 
   const token = createEmailToken(email);
-  await sendVerificationEmail(email, token);
+  const { link } = await sendVerificationEmail(email, token);
 
-  return NextResponse.json({ ok: true, email });
+  // Local build: no email is sent, so we hand the verification link back to the
+  // UI to display on screen. (Outside development we would not expose this.)
+  const exposeLink = process.env.NODE_ENV !== "production";
+  return NextResponse.json({
+    ok: true,
+    email,
+    verifyUrl: exposeLink ? link : undefined,
+  });
 }

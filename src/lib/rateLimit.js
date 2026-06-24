@@ -1,9 +1,8 @@
-// Simple in-memory rate limiter.
+// Simple in-memory rate limiter — no external services.
 //
-// NOTE: state lives in the Node process memory, so it is per-instance. This is
-// correct for a single-instance (beta) deployment. If you scale horizontally
-// or run on serverless with many cold instances, replace this with a shared
-// store (e.g. Upstash Redis) keyed the same way.
+// State lives in the Node process memory, so it is per-instance. This is the
+// only rate-limiting mechanism: there is no Redis or third-party dependency,
+// which keeps the app fully self-contained for local development.
 
 const buckets = new Map(); // key -> { count, resetAt }
 

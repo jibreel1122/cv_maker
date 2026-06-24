@@ -38,11 +38,14 @@ export async function POST(request) {
     return NextResponse.json({ error: "Invalid token." }, { status: 400 });
   }
 
+  let link;
   const user = await prisma.user.findUnique({ where: { email } });
   if (user && !user.emailVerified) {
-    await sendVerificationEmail(email, createEmailToken(email));
+    ({ link } = await sendVerificationEmail(email, createEmailToken(email)));
   }
 
   // Always report success to avoid leaking whether an account exists/verified.
-  return NextResponse.json({ ok: true });
+  // In local development we also return the fresh link so the UI can show it.
+  const exposeLink = process.env.NODE_ENV !== "production";
+  return NextResponse.json({ ok: true, verifyUrl: exposeLink ? link : undefined });
 }
