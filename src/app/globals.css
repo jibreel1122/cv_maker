@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-display: "Cairo", sans-serif;
+  --font-body: "Tajawal", sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: #070f26;
+  color: #f6f3ec;
+}
+
+/* شريط تمرير أنيق */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #0b1b3a;
+}
+::-webkit-scrollbar-thumb {
+  background: #2c3e63;
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3a4f7d;
+}
+
+@layer components {
+  .btn-gold {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gold px-6 py-3 font-bold text-midnight-deep shadow-lg transition hover:bg-gold-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-midnight-deep disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 px-6 py-3 font-semibold text-cream transition hover:border-gold hover:text-gold focus:outline-none focus-visible:ring-2 focus-visible:ring-gold;
+  }
+  .field-label {
+    @apply mb-1.5 block text-sm font-semibold text-cream/90;
+  }
+  .field-input {
+    @apply w-full rounded-lg border border-white/15 bg-midnight-soft/60 px-3.5 py-2.5 text-cream placeholder-slateblue/70 transition focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold;
+  }
+  .card {
+    @apply rounded-2xl border border-white/10 bg-midnight-soft/40 p-6 shadow-xl backdrop-blur;
+  }
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
