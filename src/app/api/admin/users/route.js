@@ -10,15 +10,18 @@ export async function GET(request) {
   const admin = await requireRole(["ADMIN", "OWNER"]);
   if (!admin) return NextResponse.json({ error: "Forbidden." }, { status: 403 });
 
-  const search = (new URL(request.url).searchParams.get("q") || "").trim();
-  const where = search
-    ? {
-        OR: [
-          { name: { contains: search } },
-          { email: { contains: search } },
-        ],
-      }
-    : {};
+  const sp = new URL(request.url).searchParams;
+  const search = (sp.get("q") || "").trim();
+  const onlyUnverified = sp.get("unverified") === "1";
+
+  const where = {};
+  if (search) {
+    where.OR = [{ name: { contains: search } }, { email: { contains: search } }];
+  }
+  if (onlyUnverified) {
+    where.emailVerified = null;
+    where.passwordHash = { not: null }; // OAuth users are considered verified
+  }
 
   const users = await prisma.user.findMany({
     where,
@@ -30,6 +33,7 @@ export async function GET(request) {
       email: true,
       image: true,
       role: true,
+      emailVerified: true,
       createdAt: true,
       accounts: { select: { provider: true } },
       _count: { select: { cvs: true } },
@@ -43,6 +47,7 @@ export async function GET(request) {
       email: u.email,
       image: u.image,
       role: u.role,
+      emailVerified: u.emailVerified,
       createdAt: u.createdAt,
       cvCount: u._count.cvs,
       // "email" for credential accounts, otherwise the OAuth providers used.

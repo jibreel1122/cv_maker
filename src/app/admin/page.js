@@ -25,6 +25,9 @@ import {
   Trash2,
   Home,
   X,
+  MailWarning,
+  UserCheck,
+  ScrollText,
 } from "lucide-react";
 import CVPreview from "@/components/CVPreview";
 
@@ -71,6 +74,8 @@ export default function AdminDashboard() {
   const [cvQ, setCvQ] = useState("");
   const [preview, setPreview] = useState(null); // { data, templateId, title }
   const [busyId, setBusyId] = useState(null);
+  const [showUnverified, setShowUnverified] = useState(false);
+  const [unverifiedUsers, setUnverifiedUsers] = useState(null);
 
   async function loadStats() {
     const res = await fetch("/api/admin/stats");
@@ -129,6 +134,47 @@ export default function AdminDashboard() {
     loadUsers();
     loadStats();
     loadCvs();
+    loadUnverified();
+  }
+
+  async function loadUnverified() {
+    const res = await fetch("/api/admin/users?unverified=1");
+    if (!res.ok) return;
+    const json = await res.json();
+    setUnverifiedUsers(json.users || []);
+  }
+
+  async function openUnverified() {
+    setUnverifiedUsers(null);
+    setShowUnverified(true);
+    loadUnverified();
+  }
+
+  async function markVerified(userId) {
+    setBusyId(userId);
+    await fetch(`/api/admin/users/${userId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "verify" }),
+    });
+    setBusyId(null);
+    loadUnverified();
+    loadStats();
+    loadUsers();
+  }
+
+  async function deleteUnverified(userId) {
+    if (!confirm("Delete this unverified user? This cannot be undone.")) return;
+    setBusyId(userId);
+    const res = await fetch(`/api/admin/users/${userId}`, { method: "DELETE" });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      alert(json.error || "Could not delete user.");
+    }
+    setBusyId(null);
+    loadUnverified();
+    loadStats();
+    loadUsers();
   }
 
   async function openPreview(cvId, title) {
@@ -165,9 +211,16 @@ export default function AdminDashboard() {
               <span className="ml-2 chip bg-brand-50 text-brand-700">{myRole}</span>
             </div>
           </div>
-          <Link href="/dashboard" className="btn-ghost text-sm">
-            <Home className="h-4 w-4" /> My dashboard
-          </Link>
+          <div className="flex items-center gap-1.5">
+            {myRole === "OWNER" && (
+              <Link href="/admin/audit-logs" className="btn-ghost text-sm">
+                <ScrollText className="h-4 w-4" /> <span className="hidden sm:inline">Audit logs</span>
+              </Link>
+            )}
+            <Link href="/dashboard" className="btn-ghost text-sm">
+              <Home className="h-4 w-4" /> <span className="hidden sm:inline">My dashboard</span>
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -190,6 +243,31 @@ export default function AdminDashboard() {
         {/* Overview */}
         {tab === "overview" && (
           <div>
+            {/* Unverified users alert */}
+            {stats?.unverified > 0 && (
+              <div className="mb-4 flex flex-col items-start justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-5 sm:flex-row sm:items-center">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
+                    <MailWarning className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="font-display font-bold text-amber-800">
+                      Unverified Users: {stats.unverified}
+                    </div>
+                    <p className="text-sm text-amber-700">
+                      Accounts that registered but have not confirmed their email.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={openUnverified}
+                  className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-600"
+                >
+                  View Unverified Users
+                </button>
+              </div>
+            )}
+
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <StatCard icon={Users} label="Total users" value={stats?.totalUsers ?? "—"} />
               <StatCard icon={FileText} label="Total CVs" value={stats?.totalCvs ?? "—"} />
@@ -456,6 +534,74 @@ export default function AdminDashboard() {
               </div>
             ) : (
               <CVPreview cvData={preview.data} templateId={preview.templateId} />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Unverified users modal */}
+      {showUnverified && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-auto bg-ink/40 p-4 sm:p-8"
+          onClick={() => setShowUnverified(false)}
+        >
+          <div
+            className="w-full max-w-2xl rounded-2xl bg-white p-5 shadow-card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <span className="font-display font-bold text-ink">Unverified users</span>
+              <button onClick={() => setShowUnverified(false)} className="text-slate-400 hover:text-ink">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {unverifiedUsers === null ? (
+              <div className="flex items-center justify-center py-12 text-slate-400">
+                <Loader2 className="h-6 w-6 animate-spin" />
+              </div>
+            ) : unverifiedUsers.length === 0 ? (
+              <p className="py-12 text-center text-slate-500">No unverified users 🎉</p>
+            ) : (
+              <ul className="divide-y divide-slate-100">
+                {unverifiedUsers.map((u) => (
+                  <li key={u.id} className="flex items-center justify-between gap-3 py-3">
+                    <div className="min-w-0">
+                      <div className="truncate font-semibold text-ink">{u.name || "—"}</div>
+                      <div className="truncate text-xs text-slate-500">{u.email}</div>
+                      <div className="text-xs text-slate-400">
+                        Joined{" "}
+                        {new Date(u.createdAt).toLocaleDateString("en-GB", {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button
+                        onClick={() => markVerified(u.id)}
+                        disabled={busyId === u.id}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50"
+                      >
+                        {busyId === u.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <UserCheck className="h-3.5 w-3.5" />
+                        )}
+                        Mark Verified
+                      </button>
+                      <button
+                        onClick={() => deleteUnverified(u.id)}
+                        disabled={busyId === u.id}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Delete
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         </div>

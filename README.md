@@ -38,8 +38,8 @@ npm install
 
 # 2) Configure environment variables
 cp .env.example .env.local
-#   - Set NEXTAUTH_SECRET (e.g. `openssl rand -base64 32`)
-#   - Optionally add Google / Apple OAuth keys
+#   - Set NEXTAUTH_SECRET (see "Generating secrets" below)
+#   - Optionally add Google / Apple OAuth keys and SMTP settings
 #   - OWNER_EMAIL / OWNER_PASSWORD seed the first owner account
 
 # 3) Create the database schema
@@ -51,6 +51,20 @@ npm run db:seed
 # 5) Run
 npm run dev          # http://localhost:3000
 ```
+
+### Generating secrets
+
+```bash
+# Generate a strong NEXTAUTH_SECRET
+openssl rand -base64 32
+```
+
+`NEXTAUTH_SECRET` signs both the session cookies and the email-verification
+tokens — set a strong, unique value in every environment.
+
+> **Email in development:** if no `SMTP_*` variables are set, verification
+> emails are not sent — the verification link is printed to the server console
+> instead, so you can still complete the flow locally.
 
 ### Owner / admin account
 
@@ -82,29 +96,61 @@ pages simply hide the social buttons.
 
 ```
 prisma/
-  schema.prisma        # User, Account, Session, VerificationToken, CV
+  schema.prisma        # User, Account, Session, VerificationToken, CV, AuditLog
   seed.js              # seeds the OWNER account
 src/
   app/
     page.js            # landing page
     login/ register/   # auth pages
+    verify-email/      # email verification page
     dashboard/         # user's CV list
+    settings/          # account settings + danger zone (delete account)
     build/             # CV builder (create / edit)
     admin/             # admin dashboard
+    admin/audit-logs/  # audit log viewer (owner only)
+    privacy/ terms/    # legal pages
     api/
-      auth/            # NextAuth + register
+      auth/            # NextAuth, register, verify-email, resend-verification
       cv/              # CRUD + /[id]/pdf
-      admin/           # stats, users, role changes, cvs
+      user/delete/     # account self-deletion
+      admin/           # stats, users, role changes, cvs, audit-logs
   components/          # UI components
   lib/
     auth.js            # NextAuth config + role helpers
     session.js         # server-side session/role guards
+    tokens.js          # signed email-verification tokens
+    mailer.js          # SMTP / nodemailer (console fallback)
+    rateLimit.js       # in-memory rate limiter
+    audit.js           # audit logging
+    security.js        # same-origin (CSRF) check
     cvTemplates.js     # CV HTML/CSS generator (single source of truth)
     cvDefaults.js      # empty + sample CV data
     pdf.js             # Puppeteer HTML → PDF
     prisma.js          # Prisma client singleton
-  middleware.js        # route protection (/dashboard, /build, /admin)
+  middleware.js        # route protection (/dashboard, /build, /admin, /settings)
 ```
+
+## Security & Privacy
+
+- **Email verification.** Email/password sign-ups must verify their address
+  before they can log in. Registration sends a signed, 24-hour verification
+  link; unverified accounts see *"Please verify your email first."* Owners/admins
+  can manually verify or remove unverified accounts from the admin dashboard.
+- **Password hashing.** Passwords are hashed with bcrypt (12 salt rounds). Plain
+  passwords are never stored or logged.
+- **CSRF & cookies.** NextAuth session cookies are `HttpOnly`, `SameSite=Lax`,
+  and `Secure` in production. The NextAuth callback is CSRF-token protected, and
+  custom state-changing routes additionally enforce a same-origin check.
+- **Rate limiting.** Login is limited to 5 failed attempts per IP per 15 minutes;
+  registration to 3 accounts per IP per hour. The limiter is in-memory (per
+  instance) — for multi-instance/serverless deployments, back it with a shared
+  store such as Upstash Redis.
+- **Audit logs.** Logins (success/failure), role changes, and account deletions
+  are recorded in an `AuditLog` table, viewable by the owner at
+  `/admin/audit-logs`. Audit logs are retained for **90 days**.
+- **Your data.** Users can permanently delete their account and all CVs at any
+  time from **Settings → Danger Zone**. See the in-app
+  [Privacy Policy](/privacy) and [Terms of Service](/terms).
 
 ## Deploying to production
 

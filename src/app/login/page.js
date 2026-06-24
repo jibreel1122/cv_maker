@@ -29,7 +29,14 @@ function LoginInner() {
       callbackUrl,
     });
     if (res?.error) {
-      setError("Incorrect email or password.");
+      // NextAuth returns "CredentialsSignin" for a plain bad-password reject;
+      // our custom thrown messages (unverified email, rate limited) come
+      // through verbatim.
+      setError(
+        res.error && res.error !== "CredentialsSignin"
+          ? res.error
+          : "Incorrect email or password."
+      );
       setLoading(false);
       return;
     }

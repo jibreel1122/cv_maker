@@ -1,12 +1,33 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { sameOrigin } from "@/lib/security";
+import { hit, clientIp } from "@/lib/rateLimit";
+import { createEmailToken } from "@/lib/tokens";
+import { sendVerificationEmail } from "@/lib/mailer";
 
 export const runtime = "nodejs";
 
-// Creates a new USER account from email + password. OAuth sign-ups (Google /
-// Apple) are handled automatically by NextAuth and never hit this route.
+// Registration rate limit: max 3 accounts per IP per hour (bot/spam guard).
+const REG_MAX = 3;
+const REG_WINDOW_MS = 60 * 60 * 1000;
+
+// Creates a new (unverified) USER account from email + password and sends a
+// verification email. OAuth sign-ups (Google / Apple) never hit this route.
 export async function POST(request) {
+  if (!sameOrigin(request)) {
+    return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
+  }
+
+  const ip = clientIp(request.headers);
+  const rl = hit(`register:${ip}`, REG_MAX, REG_WINDOW_MS);
+  if (rl.limited) {
+    return NextResponse.json(
+      { error: "Too many accounts created from this network. Try again later." },
+      { status: 429 }
+    );
+  }
+
   let body;
   try {
     body = await request.json();
@@ -39,10 +60,14 @@ export async function POST(request) {
     );
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
+  // Salt rounds = 12 (>= 12 required).
+  const passwordHash = await bcrypt.hash(password, 12);
   await prisma.user.create({
-    data: { name, email, passwordHash, role: "USER" },
+    data: { name, email, passwordHash, role: "USER", emailVerified: null },
   });
 
-  return NextResponse.json({ ok: true });
+  const token = createEmailToken(email);
+  await sendVerificationEmail(email, token);
+
+  return NextResponse.json({ ok: true, email });
 }

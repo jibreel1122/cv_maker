@@ -24,6 +24,16 @@ export default function AuthShell({ title, subtitle, children, footer }) {
         </div>
 
         {footer && <div className="mt-5 text-center text-sm text-slate-600">{footer}</div>}
+
+        <div className="mt-6 flex items-center justify-center gap-4 text-xs text-slate-400">
+          <Link href="/privacy" className="hover:text-brand-700">
+            Privacy Policy
+          </Link>
+          <span className="h-3 w-px bg-slate-200" />
+          <Link href="/terms" className="hover:text-brand-700">
+            Terms of Service
+          </Link>
+        </div>
       </div>
     </main>
   );

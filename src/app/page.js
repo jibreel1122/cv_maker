@@ -10,6 +10,7 @@ import {
   Gift,
 } from "lucide-react";
 import SiteHeader from "@/components/SiteHeader";
+import Footer from "@/components/Footer";
 import HeroPreview from "@/components/landing/HeroPreview";
 import { TEMPLATES } from "@/lib/cvTemplates";
 
@@ -42,10 +43,19 @@ const steps = [
   { n: "3", title: "Pick a template & download", desc: "Choose from several modern templates and export a polished PDF instantly." },
 ];
 
-export default function HomePage() {
+export default function HomePage({ searchParams }) {
+  const deleted = searchParams?.deleted === "1";
   return (
     <main className="min-h-screen bg-canvas">
       <SiteHeader />
+
+      {deleted && (
+        <div className="border-b border-brand-200 bg-brand-50">
+          <div className="mx-auto max-w-7xl px-6 py-3 text-center text-sm font-medium text-brand-800">
+            Your account and all data have been deleted.
+          </div>
+        </div>
+      )}
 
       {/* soft background accents */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
@@ -169,9 +179,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <footer className="border-t border-slate-100 py-8 text-center text-sm text-slate-500">
-        © {new Date().getFullYear()} CV Maker — Free professional CV builder.
-      </footer>
+      <Footer />
     </main>
   );
 }

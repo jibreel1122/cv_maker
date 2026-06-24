@@ -96,3 +96,19 @@ model CV {
   @@index([userId])
   @@index([createdAt])
 }
+
+// Audit log -------------------------------------------------------------------
+// `metadata` holds a JSON-encoded string (e.g. { ip, email, oldRole, newRole }).
+// We use String rather than Prisma's Json type so the column — and `contains`
+// filtering on it — works on both SQLite and Postgres.
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String? // actor or subject; null for events with no known user (e.g. failed login)
+  action    String // LOGIN_FAILED | LOGIN_SUCCESS | DELETE_ACCOUNT | ROLE_CHANGED | USER_DELETED_BY_ADMIN | EMAIL_VERIFIED
+  metadata  String? // JSON string
+  createdAt DateTime @default(now())
+
+  @@index([action])
+  @@index([createdAt])
+}

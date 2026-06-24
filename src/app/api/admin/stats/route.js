@@ -10,9 +10,10 @@ export async function GET() {
   const admin = await requireRole(["ADMIN", "OWNER"]);
   if (!admin) return NextResponse.json({ error: "Forbidden." }, { status: 403 });
 
-  const [totalUsers, totalCvs, users] = await Promise.all([
+  const [totalUsers, totalCvs, unverified, users] = await Promise.all([
     prisma.user.count(),
     prisma.cV.count(),
+    prisma.user.count({ where: { emailVerified: null, passwordHash: { not: null } } }),
     prisma.user.findMany({ select: { role: true, createdAt: true } }),
   ]);
 
@@ -39,7 +40,7 @@ export async function GET() {
   }
 
   return NextResponse.json({
-    stats: { totalUsers, totalCvs, admins, newToday },
+    stats: { totalUsers, totalCvs, admins, newToday, unverified },
     signupsByDay,
   });
 }
