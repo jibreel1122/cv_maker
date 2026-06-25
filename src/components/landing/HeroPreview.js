@@ -83,16 +83,35 @@ export default function HeroPreview() {
   }, []);
 
   const data = partial(progress);
+  const done = progress >= 1;
 
   return (
-    <div className="card p-3 sm:p-4">
-      <div className="mb-2 flex items-center gap-1.5 px-1">
-        <span className="h-3 w-3 rounded-full bg-[#ff5f56]" />
-        <span className="h-3 w-3 rounded-full bg-[#ffbd2e]" />
-        <span className="h-3 w-3 rounded-full bg-[#27c93f]" />
-        <span className="ml-auto text-xs text-slate-400">Live preview</span>
+    <div className="relative">
+      <div className="card p-3 sm:p-4">
+        <div className="mb-2 flex items-center gap-1.5 px-1">
+          <span className="h-3 w-3 rounded-full bg-[#ff5f56]" />
+          <span className="h-3 w-3 rounded-full bg-[#ffbd2e]" />
+          <span className="h-3 w-3 rounded-full bg-[#27c93f]" />
+          <span className="ml-auto text-xs text-slate-400">
+            {done ? "Ready to download" : "Building your CV…"}
+          </span>
+        </div>
+        <CVPreview cvData={data} templateId="modern" />
       </div>
-      <CVPreview cvData={data} templateId="modern" />
+
+      {/* Signature: the approval stamp presses in once the CV is complete. */}
+      {done && (
+        <div
+          key={progress}
+          className="pointer-events-none absolute -right-3 top-16 sm:-right-6 sm:top-20"
+          aria-hidden="true"
+        >
+          <span className="stamp stamp-in">
+            <span className="stamp-main">Accepted</span>
+            <span className="stamp-sub">ATS · Ready</span>
+          </span>
+        </div>
+      )}
     </div>
   );
 }

@@ -93,6 +93,86 @@ body {
   background-size: 22px 22px;
 }
 
+/* ---- Editorial structure helpers --------------------------------------- */
+/* Eyebrow: a tracked, uppercase label that names a section's job. */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #047857;
+}
+.eyebrow::before {
+  content: "";
+  width: 1.75rem;
+  height: 2px;
+  border-radius: 1px;
+  background: linear-gradient(90deg, #10b981, rgba(16, 185, 129, 0));
+}
+
+/* Tighten the hero display headline so the type reads as a deliberate
+   typographic treatment rather than a default heading. */
+.headline {
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+/* ---- Signature: the "ACCEPTED" approval stamp -------------------------- */
+/* The product's core promise is a CV that gets accepted, so the hero preview
+   literally receives an inked approval stamp once it finishes building. */
+.stamp {
+  --stamp-color: #047857;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.45rem 1.1rem;
+  border: 3px solid var(--stamp-color);
+  border-radius: 0.6rem;
+  color: var(--stamp-color);
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  /* Slightly uneven ink-press feel. */
+  box-shadow: inset 0 0 0 1px rgba(4, 120, 87, 0.25);
+  background: rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(1px);
+  mix-blend-mode: multiply;
+  opacity: 0.92;
+}
+.stamp .stamp-main {
+  font-size: 1.35rem;
+}
+.stamp .stamp-sub {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  opacity: 0.8;
+}
+.stamp-in {
+  animation: stamp-press 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+@keyframes stamp-press {
+  0% {
+    transform: rotate(-12deg) scale(2.4);
+    opacity: 0;
+  }
+  55% {
+    opacity: 0.95;
+  }
+  70% {
+    transform: rotate(-12deg) scale(0.92);
+  }
+  100% {
+    transform: rotate(-12deg) scale(1);
+    opacity: 0.92;
+  }
+}
+
 /* Respect users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *,

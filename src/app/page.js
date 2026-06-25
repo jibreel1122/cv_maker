@@ -58,20 +58,19 @@ export default function HomePage({ searchParams }) {
         </div>
       )}
 
-      {/* soft animated background accents */}
+      {/* Calm paper-grid background with a single soft accent */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute inset-0 bg-grid opacity-60" />
-        <div className="absolute -top-40 right-0 h-96 w-96 animate-float-slow rounded-full bg-brand-200/40 blur-3xl" />
-        <div className="absolute bottom-0 left-0 h-96 w-96 animate-float rounded-full bg-brand-100/50 blur-3xl" />
+        <div className="absolute inset-0 bg-grid opacity-40" />
+        <div className="absolute -top-32 right-[-6rem] h-[28rem] w-[28rem] animate-float-slow rounded-full bg-brand-200/30 blur-3xl" />
       </div>
 
       {/* Hero */}
       <section className="mx-auto grid max-w-7xl items-center gap-12 px-6 py-12 lg:grid-cols-2 lg:py-20">
         <div className="animate-fade-up">
-          <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50 px-4 py-1.5 text-sm font-semibold text-brand-700">
-            <Sparkles className="h-4 w-4 animate-pulse" /> Free forever • No payment required
+          <span className="eyebrow mb-5">
+            <Sparkles className="h-3.5 w-3.5" /> Free CV builder · ATS-ready
           </span>
-          <h1 className="font-display text-4xl font-extrabold leading-tight text-ink sm:text-5xl lg:text-6xl">
+          <h1 className="headline font-display text-4xl font-extrabold leading-[1.05] text-ink sm:text-5xl lg:text-6xl">
             Build a professional CV
             <br />
             <span className="text-gradient">that gets accepted</span>
@@ -107,9 +106,12 @@ export default function HomePage({ searchParams }) {
       {/* Features */}
       <section className="mx-auto max-w-7xl px-6 py-16">
         <Reveal>
-          <h2 className="text-center font-display text-3xl font-extrabold text-ink">
-            Why CV Maker?
-          </h2>
+          <div className="flex flex-col items-center text-center">
+            <span className="eyebrow mb-3">What you get</span>
+            <h2 className="headline font-display text-3xl font-extrabold text-ink">
+              Why CV Maker?
+            </h2>
+          </div>
         </Reveal>
         <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {features.map((f, i) => (
@@ -129,9 +131,12 @@ export default function HomePage({ searchParams }) {
       {/* Steps */}
       <section className="mx-auto max-w-7xl px-6 py-16">
         <Reveal>
-          <h2 className="text-center font-display text-3xl font-extrabold text-ink">
-            Three simple steps
-          </h2>
+          <div className="flex flex-col items-center text-center">
+            <span className="eyebrow mb-3">How it works</span>
+            <h2 className="headline font-display text-3xl font-extrabold text-ink">
+              Three simple steps
+            </h2>
+          </div>
         </Reveal>
         <div className="mt-12 grid gap-6 md:grid-cols-3">
           {steps.map((s, i) => (
@@ -151,9 +156,12 @@ export default function HomePage({ searchParams }) {
       {/* Templates */}
       <section className="mx-auto max-w-7xl px-6 py-16">
         <Reveal>
-          <h2 className="text-center font-display text-3xl font-extrabold text-ink">
-            Templates for every field
-          </h2>
+          <div className="flex flex-col items-center text-center">
+            <span className="eyebrow mb-3">Pick your look</span>
+            <h2 className="headline font-display text-3xl font-extrabold text-ink">
+              Templates for every field
+            </h2>
+          </div>
           <p className="mx-auto mt-3 max-w-2xl text-center text-slate-600">
             {TEMPLATES.length} distinct, internationally-accepted designs — all clean
             single-column layouts that stay readable for recruiters and ATS software
