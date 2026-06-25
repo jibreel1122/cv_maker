@@ -19,48 +19,84 @@
 // exactly.
 // ============================================================================
 
+// Web-safe font stacks only — no external (Google) fonts are loaded, so the
+// live preview and the Puppeteer PDF render identically and fully offline.
+// These are the fonts ATS software and recruiters expect.
+const SANS = "Arial, 'Helvetica Neue', Helvetica, sans-serif";
+const CALIBRI = "Calibri, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
+const GEORGIA = "Georgia, 'Times New Roman', Times, serif";
+const TIMES = "'Times New Roman', Times, Georgia, serif";
+
 export const TEMPLATES = [
   {
     id: "classic",
     name: "Classic",
     desc: "Centered name, underlined section titles, comfortable spacing.",
-    font: "'Inter', Arial, sans-serif",
+    font: SANS,
     accent: "#0f766e",
   },
   {
     id: "modern",
     name: "Modern",
     desc: "Left-aligned header with uppercase, letter-spaced green headings.",
-    font: "'Inter', Arial, sans-serif",
+    font: CALIBRI,
     accent: "#059669",
   },
   {
     id: "professional",
     name: "Professional",
     desc: "Confident header rule and bold green section labels.",
-    font: "'Inter', Arial, sans-serif",
+    font: SANS,
     accent: "#047857",
   },
   {
     id: "minimal",
     name: "Minimal",
     desc: "Lots of whitespace, thin rules, understated and clean.",
-    font: "'Inter', Arial, sans-serif",
+    font: CALIBRI,
     accent: "#334155",
   },
   {
     id: "elegant",
     name: "Elegant",
     desc: "Classic serif typography with a refined emerald accent.",
-    font: "'Lora', Georgia, serif",
+    font: GEORGIA,
     accent: "#065f46",
   },
   {
     id: "compact",
     name: "Compact",
     desc: "Tighter spacing to fit more content on a single page.",
-    font: "'Inter', Arial, sans-serif",
+    font: CALIBRI,
     accent: "#15803d",
+  },
+  {
+    id: "executive",
+    name: "Executive",
+    desc: "Serif headings and a strong rule — ideal for senior roles.",
+    font: GEORGIA,
+    accent: "#1f2937",
+  },
+  {
+    id: "harvard",
+    name: "Harvard",
+    desc: "The widely-accepted academic format: Times, centered, formal.",
+    font: TIMES,
+    accent: "#111827",
+  },
+  {
+    id: "corporate",
+    name: "Corporate",
+    desc: "Clean Calibri business standard with tidy boxed headings.",
+    font: CALIBRI,
+    accent: "#0e7490",
+  },
+  {
+    id: "technical",
+    name: "Technical",
+    desc: "Dense, Arial, structured — built for engineering & IT roles.",
+    font: SANS,
+    accent: "#1d4ed8",
   },
 ];
 
@@ -231,6 +267,66 @@ function buildStyles(tpl) {
       .item-date{color:#555;font-size:9pt;}
       .bullets li{margin-top:1px;}
     `,
+    executive: `
+      .page{font-size:11pt;}
+      .header{border-bottom:2px solid ${tpl.accent};padding-bottom:12px;}
+      .name{font-size:25pt;font-weight:700;letter-spacing:0.3px;}
+      .job-title{font-size:12.5pt;color:#444;margin-top:3px;font-weight:600;letter-spacing:0.5px;}
+      .section{margin-top:16px;}
+      .section-title{
+        color:${tpl.accent};font-size:12.5pt;font-weight:700;
+        text-transform:uppercase;letter-spacing:1.5px;
+        border-bottom:1px solid #cbd5e1;padding-bottom:3px;margin-bottom:4px;
+      }
+      .item-title{font-weight:700;font-size:11.5pt;}
+      .item-sub{color:#444;font-weight:600;}
+      .item-date{color:#555;font-size:10pt;}
+    `,
+    harvard: `
+      .page{font-size:11pt;padding:18mm 18mm;}
+      .header{text-align:center;padding-bottom:8px;}
+      .name{font-size:21pt;font-weight:700;letter-spacing:0.5px;}
+      .job-title{font-size:12pt;color:#333;margin-top:2px;font-weight:400;}
+      .contact{text-align:center;}
+      .section{margin-top:14px;}
+      .section-title{
+        color:${tpl.accent};font-size:11.5pt;font-weight:700;
+        text-transform:uppercase;letter-spacing:1px;
+        border-bottom:1.5px solid #111827;padding-bottom:2px;margin-bottom:4px;
+      }
+      .item-title{font-weight:700;font-size:11pt;}
+      .item-sub{color:#333;font-style:italic;}
+      .item-date{color:#555;font-size:10pt;font-style:italic;}
+    `,
+    corporate: `
+      .page{font-size:10.5pt;}
+      .header{border-bottom:1px solid #cbd5e1;padding-bottom:11px;}
+      .name{font-size:23pt;font-weight:700;}
+      .job-title{font-size:12pt;color:${tpl.accent};margin-top:2px;font-weight:600;}
+      .section-title{
+        color:#0f172a;background:#eef2f5;border-left:4px solid ${tpl.accent};
+        font-size:10.5pt;font-weight:700;text-transform:uppercase;letter-spacing:1px;
+        padding:3px 10px;margin-bottom:5px;
+      }
+      .item-title{font-weight:700;font-size:11pt;}
+      .item-sub{color:#444;font-weight:600;}
+      .item-date{color:#555;font-size:9.5pt;}
+    `,
+    technical: `
+      .page{font-size:10pt;padding:16mm 15mm;}
+      .header{border-bottom:2px solid ${tpl.accent};padding-bottom:9px;}
+      .name{font-size:21pt;font-weight:700;}
+      .job-title{font-size:11.5pt;color:#444;margin-top:2px;font-weight:600;}
+      .section{margin-top:12px;}
+      .section-title{
+        color:${tpl.accent};font-size:10.5pt;font-weight:700;
+        text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px;
+      }
+      .item-title{font-weight:700;font-size:10.5pt;}
+      .item-sub{color:#444;}
+      .item-date{color:#555;font-size:9pt;}
+      .skills-list li{border-color:${tpl.accent}33;background:${tpl.accent}0d;}
+    `,
   };
 
   return base + (variants[tpl.id] || variants.classic);
@@ -361,9 +457,6 @@ export function buildCvHtml(cvData, templateId) {
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>CV</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
 <style>${styles}</style>
 </head>
 <body>

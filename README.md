@@ -6,49 +6,81 @@ modern **ATS-friendly** templates, and download a polished **PDF** — in Englis
 accepted in Palestine and worldwide. It includes a full **admin dashboard** with
 user management, role assignment, and visibility into every CV.
 
-> There are **no payments** and **no external services**. The whole product is
-> free and runs **100% locally** — no API keys, OAuth providers, email servers,
-> or third-party accounts required.
+> There are **no payments** and **no paid third-party services**. Sign-in is
+> email/password only — no OAuth providers and no email server. The only thing
+> you provide is a free **Supabase** Postgres database.
 
 ## Features
 
 - **Authentication** — email/password only (NextAuth). No external OAuth.
 - **Roles** — `USER`, `ADMIN`, `OWNER`. The owner/admin can promote or demote
   users from the dashboard.
-- **CV builder** — multi-step form with a live, pixel-accurate preview.
-- **Templates** — six distinct, single-column, ATS-safe English designs
-  (Classic, Modern, Professional, Minimal, Elegant, Compact).
+- **CV builder** — multi-step form with a live, pixel-accurate preview and
+  modern UI animations.
+- **Templates** — **ten** distinct, single-column, ATS-safe English designs
+  (Classic, Modern, Professional, Minimal, Elegant, Compact, Executive,
+  Harvard, Corporate, Technical). All use standard web-safe fonts — no external
+  font requests, so previews and PDFs render identically and offline.
 - **PDF export** — generated through a real headless Chrome (Puppeteer), so the
   download matches the preview exactly.
 - **Admin dashboard** — overview stats + 30-day signups chart, a user table
   with inline role management, and a CV browser (view / download any CV).
-- **Modern green UI** — clean light theme built with Tailwind CSS.
+- **Modern green UI** — clean light theme with scroll-reveal and hover motion,
+  built with Tailwind CSS.
 
 ## Tech stack
 
 - **Next.js 14** (App Router) + **React 18**
 - **NextAuth** (JWT sessions) + **Prisma adapter**
-- **Prisma** ORM — SQLite for local dev, Postgres-ready for production
+- **Prisma** ORM on **PostgreSQL** (Supabase)
 - **Tailwind CSS**, **lucide-react**, **recharts**
 - **Puppeteer** for PDF generation
 
 ## Getting started
 
-No configuration is required — just install and run:
-
 ```bash
+# 1) Install dependencies
 npm install
-npm run dev          # http://localhost:3000
+
+# 2) Set up your database connection (see "Database (Supabase)" below)
+cp .env.example .env        # then edit .env with your Supabase URLs + a secret
+
+# 3) Create the tables and seed the owner/demo accounts
+npm run db:setup
+
+# 4) Run
+npm run dev                 # http://localhost:3000
 ```
 
-`npm run dev` automatically generates the Prisma client, creates the local
-SQLite database (`prisma/dev.db`), and seeds the owner + demo accounts before
-starting Next.js. There are **no keys to set** and **nothing to copy** — the
-non-secret `DATABASE_URL` ships in the committed `.env`, and a development
-`NEXTAUTH_SECRET` fallback is used automatically.
+## Database (Supabase)
 
-> Want to customise? Copy `.env.example` to `.env.local` and set
-> `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, or override the seeded owner credentials.
+This app stores everything in a PostgreSQL database hosted on
+[Supabase](https://supabase.com) (free tier is plenty).
+
+1. Create a project at **app.supabase.com**.
+2. Open **Project → Settings → Database → Connection string** and copy two
+   strings into your `.env`:
+   - **`DATABASE_URL`** — the **Connection pooling** string (Transaction mode,
+     port **6543**). Keep the `?pgbouncer=true` flag. The app uses this at
+     runtime.
+   - **`DIRECT_URL`** — the **Direct connection** string (port **5432**).
+     Prisma uses this for `npm run db:setup` / migrations.
+
+   Replace `[PASSWORD]` with your database password.
+3. Run `npm run db:setup` to create the tables and seed accounts.
+
+> **Where does the "anon key" go?** You don't need it. This app connects to
+> Postgres **directly through Prisma** using the connection strings above, so
+> the Supabase Project URL and anon/public key are **not required**. If you
+> later add the `@supabase/supabase-js` client (for Auth/Storage/Realtime),
+> placeholders for `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+> are included (commented out) at the bottom of `.env.example`.
+
+### Generating the auth secret
+
+```bash
+openssl rand -base64 32      # paste into NEXTAUTH_SECRET in .env
+```
 
 ### Seeded accounts
 
@@ -96,7 +128,12 @@ src/
       cv/              # CRUD + /[id]/pdf
       user/delete/     # account self-deletion
       admin/           # stats, users, role changes, cvs, audit-logs
-  components/          # UI components
+    error.js           # friendly route error boundary (replaces blank error page)
+    global-error.js    # root error boundary
+  components/
+    Reveal.js          # scroll-reveal animation wrapper
+    Footer.js          # footer (with "Made by Jibreel Bornat")
+    ...                # other UI components
   lib/
     auth.js            # NextAuth config + role helpers
     session.js         # server-side session/role guards
@@ -105,7 +142,7 @@ src/
     rateLimit.js       # in-memory rate limiter
     audit.js           # audit logging
     security.js        # same-origin (CSRF) check
-    cvTemplates.js     # CV HTML/CSS generator (single source of truth)
+    cvTemplates.js     # CV HTML/CSS generator — 10 ATS templates, web-safe fonts
     cvDefaults.js      # empty + sample CV data
     pdf.js             # Puppeteer HTML → PDF
     prisma.js          # Prisma client singleton
@@ -137,9 +174,8 @@ src/
 
 ## Deploying to production
 
-1. **Database** — switch `provider` in `prisma/schema.prisma` to `postgresql`
-   and point `DATABASE_URL` at a managed Postgres (Neon / Supabase). Run
-   `npm run db:push` and `npm run db:seed`.
+1. **Database** — already PostgreSQL/Supabase. Set `DATABASE_URL` and
+   `DIRECT_URL` in your host's env vars and run `npm run db:setup` once.
 2. **PDF on serverless** — Puppeteer's bundled Chromium is too large for some
    serverless platforms. Replace `puppeteer` with `puppeteer-core` +
    `@sparticuz/chromium` in `src/lib/pdf.js`. On a regular Node host (Render,

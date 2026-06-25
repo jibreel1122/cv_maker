@@ -18,6 +18,10 @@ const TEMPLATE_NAMES = {
   minimal: "Minimal",
   elegant: "Elegant",
   compact: "Compact",
+  executive: "Executive",
+  harvard: "Harvard",
+  corporate: "Corporate",
+  technical: "Technical",
 };
 
 export default function CvList() {
@@ -74,8 +78,12 @@ export default function CvList() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {cvs.map((cv) => (
-            <div key={cv.id} className="card flex flex-col">
+          {cvs.map((cv, i) => (
+            <div
+              key={cv.id}
+              className="card card-hover flex animate-fade-up flex-col"
+              style={{ animationDelay: `${Math.min(i, 8) * 60}ms` }}
+            >
               <div className="flex items-start justify-between gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
                   <FileText className="h-5 w-5" />

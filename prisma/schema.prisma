@@ -1,19 +1,20 @@
 // Prisma schema for the CV Maker platform.
 //
-// Deployment note:
-//   During development we use SQLite (provider = "sqlite").
-//   Before deploying to a serverless host (e.g. Vercel) — which does not keep
-//   the SQLite file between requests — switch `provider` to "postgresql" and
-//   point DATABASE_URL at a managed Postgres database (Neon / Supabase).
-//   The models below are compatible with both.
+// Database: PostgreSQL (designed for Supabase).
+//   - DATABASE_URL : the Supabase "Connection pooling" string (port 6543,
+//                    pgbouncer). Used by the app at runtime.
+//   - DIRECT_URL   : the Supabase "Direct connection" string (port 5432).
+//                    Used by Prisma for migrations / `db push`.
+// See README → "Database (Supabase)" for exactly where to copy these from.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ---------------------------------------------------------------------------

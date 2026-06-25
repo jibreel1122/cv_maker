@@ -20,10 +20,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# env
-# NOTE: `.env` is intentionally committed — it holds only the non-secret local
-# SQLite path (DATABASE_URL) so the app runs zero-config after a fresh clone.
-# Real secrets/overrides go in `.env.local`, which stays ignored.
+# env — holds the Supabase connection strings + secrets, never commit it.
+.env
 .env.local
 .env*.local
 
