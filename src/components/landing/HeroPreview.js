@@ -1,20 +1,31 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import CVPreview from "@/components/CVPreview";
 import { sampleCvData } from "@/lib/cvDefaults";
+
+// The animation advances in discrete steps rather than on every animation
+// frame. Each step rebuilds the CV HTML and reloads the preview iframe's
+// document, so running it at 60fps pinned a CPU core for as long as the landing
+// page stayed open. At 10fps the typing still reads as continuous and the work
+// drops by 6x.
+const STEPS = 60; // discrete frames across one full cycle
+const STEP_MS = 100; // 10fps
+const HOLD_STEPS = 22; // ~2.2s pause on the finished CV before looping
 
 // Builds a partial copy of the sample data based on progress to mimic live typing.
 function partial(progress) {
   const s = sampleCvData;
   const data = {
     personal: { ...s.personal },
+    sectionTitles: s.sectionTitles,
     summary: "",
     experiences: [],
     education: [],
     skills: [],
     languages: [],
     certifications: [],
+    customSections: [],
   };
 
   if (progress < 0.15) {
@@ -34,8 +45,7 @@ function partial(progress) {
 
   if (progress < 0.7) {
     const p = (progress - 0.45) / 0.25;
-    const count = Math.ceil(s.experiences.length * p);
-    data.experiences = s.experiences.slice(0, count);
+    data.experiences = s.experiences.slice(0, Math.ceil(s.experiences.length * p));
     return data;
   }
   data.experiences = s.experiences;
@@ -50,39 +60,47 @@ function partial(progress) {
   if (progress >= 0.95) {
     data.languages = s.languages;
     data.certifications = s.certifications;
+    data.customSections = s.customSections;
   }
   return data;
 }
 
 export default function HeroPreview() {
-  const [progress, setProgress] = useState(0);
+  const [step, setStep] = useState(0);
 
   useEffect(() => {
-    let raf;
-    let start = null;
-    const DURATION = 6000;
-    const PAUSE = 2200;
+    // Respect the OS "reduce motion" setting — hold the finished CV instead of
+    // looping an animation the user has asked not to see.
+    const reduceMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) {
+      setStep(STEPS);
+      return;
+    }
 
-    const tick = (ts) => {
-      if (start === null) start = ts;
-      const elapsed = ts - start;
-      if (elapsed < DURATION) {
-        setProgress(elapsed / DURATION);
-        raf = requestAnimationFrame(tick);
-      } else if (elapsed < DURATION + PAUSE) {
-        setProgress(1);
-        raf = requestAnimationFrame(tick);
-      } else {
-        start = ts;
-        setProgress(0);
-        raf = requestAnimationFrame(tick);
-      }
+    let cancelled = false;
+    let timer;
+
+    const tick = () => {
+      if (cancelled) return;
+      setStep((prev) => (prev >= STEPS + HOLD_STEPS ? 0 : prev + 1));
+      timer = setTimeout(tick, STEP_MS);
     };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    timer = setTimeout(tick, STEP_MS);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, []);
 
-  const data = partial(progress);
+  // Memoising on the clamped integer frame — not on an object — means the CV
+  // HTML is rebuilt once per visible frame rather than once per React render.
+  // During the hold at the end of a cycle `frame` stops changing, so the data
+  // object keeps its identity and nothing is rebuilt at all.
+  const frame = Math.min(step, STEPS);
+  const data = useMemo(() => partial(frame / STEPS), [frame]);
 
   return (
     <div className="card p-3 sm:p-4">
@@ -92,7 +110,7 @@ export default function HeroPreview() {
         <span className="h-3 w-3 rounded-full bg-[#27c93f]" />
         <span className="ml-auto text-xs text-slate-400">Live preview</span>
       </div>
-      <CVPreview cvData={data} templateId="modern" />
+      <CVPreview cvData={data} templateId="modern-professional" />
     </div>
   );
 }

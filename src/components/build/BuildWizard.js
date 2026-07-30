@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -11,25 +11,47 @@ import {
   Save,
   Eye,
   X,
+  History,
+  Check,
 } from "lucide-react";
 import CVPreview from "@/components/CVPreview";
-import { TEMPLATES } from "@/lib/cvTemplates";
-import { emptyCvData } from "@/lib/cvDefaults";
+import { TEMPLATES, DEFAULT_TEMPLATE_ID, resolveTemplateId } from "@/lib/cvTemplates";
+import {
+  emptyCvData,
+  blankExperience,
+  blankEducation,
+  blankCertification,
+} from "@/lib/cvDefaults";
 import { Field, TextArea, Checkbox } from "./fields";
+import SectionTitleField from "./SectionTitleField";
+import CustomSections from "./CustomSections";
+import { useCvDraft } from "./useCvDraft";
+
+// Rebuilding the preview replaces the iframe's srcDoc, which forces a full
+// document reload — far too heavy to do on every keystroke.
+const PREVIEW_DEBOUNCE_MS = 250;
 
 const STEPS = [
-  "Personal details",
-  "Summary",
-  "Education",
-  "Experience",
-  "Skills",
-  "Languages",
-  "Certifications",
-  "Template & save",
+  { label: "Personal details", key: null },
+  { label: "Summary", key: "summary" },
+  { label: "Education", key: "education" },
+  { label: "Experience", key: "experience" },
+  { label: "Skills", key: "skills" },
+  { label: "Languages", key: "languages" },
+  { label: "Certifications", key: "certifications" },
+  { label: "Custom sections", key: null },
+  { label: "Template & save", key: null },
 ];
+
+const LAST_STEP = STEPS.length - 1;
 
 function freshData() {
   return JSON.parse(JSON.stringify(emptyCvData));
+}
+
+// Stable signature of the editable state, used for dirty-tracking.
+function signature(data, templateId) {
+  return JSON.stringify({ data, templateId });
 }
 
 export default function BuildWizard() {
@@ -39,13 +61,30 @@ export default function BuildWizard() {
 
   const [step, setStep] = useState(0);
   const [data, setData] = useState(freshData);
-  const [templateId, setTemplateId] = useState("modern");
+  const [templateId, setTemplateId] = useState(DEFAULT_TEMPLATE_ID);
   const [loadingCv, setLoadingCv] = useState(!!editId);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [mobilePreview, setMobilePreview] = useState(false);
 
-  // Load an existing CV when editing.
+  // Baseline the current state is compared against to decide "dirty".
+  const [baseline, setBaseline] = useState(() => signature(freshData(), DEFAULT_TEMPLATE_ID));
+  // Set once the user has answered (or dismissed) the restore prompt, which is
+  // what unlocks autosave — otherwise mounting would immediately overwrite the
+  // very draft we are about to offer back.
+  const [draftResolved, setDraftResolved] = useState(false);
+  const savedRef = useRef(false);
+
+  const { pendingDraft, dismissDraft, discardDraft, clearDraft } = useCvDraft({
+    editId,
+    data,
+    templateId,
+    enabled: draftResolved && !loadingCv,
+  });
+
+  const dirty = !savedRef.current && signature(data, templateId) !== baseline;
+
+  // --- Load an existing CV when editing -------------------------------------
   useEffect(() => {
     if (!editId) return;
     let cancelled = false;
@@ -55,8 +94,11 @@ export default function BuildWizard() {
         if (!res.ok) throw new Error();
         const json = await res.json();
         if (cancelled) return;
-        if (json.data) setData(json.data);
-        if (json.templateId) setTemplateId(json.templateId);
+        const loaded = json.data || freshData();
+        const tpl = resolveTemplateId(json.templateId) || DEFAULT_TEMPLATE_ID;
+        setData(loaded);
+        setTemplateId(tpl);
+        setBaseline(signature(loaded, tpl));
       } catch {
         if (!cancelled) setError("Could not load this CV.");
       } finally {
@@ -68,38 +110,94 @@ export default function BuildWizard() {
     };
   }, [editId]);
 
-  function setPersonal(key, val) {
+  // Nothing to restore -> unlock autosave as soon as loading settles.
+  useEffect(() => {
+    if (loadingCv) return;
+    if (pendingDraft === null) setDraftResolved(true);
+  }, [loadingCv, pendingDraft]);
+
+  // --- Unsaved-changes guard -------------------------------------------------
+  useEffect(() => {
+    if (!dirty) return;
+    const onBeforeUnload = (e) => {
+      e.preventDefault();
+      // Modern browsers show their own copy; returnValue is still required for
+      // the prompt to appear at all in some of them.
+      e.returnValue = "";
+      return "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty]);
+
+  // --- Draft restore ---------------------------------------------------------
+  function restoreDraft() {
+    if (pendingDraft?.data) {
+      setData(pendingDraft.data);
+      if (pendingDraft.templateId) {
+        setTemplateId(resolveTemplateId(pendingDraft.templateId) || DEFAULT_TEMPLATE_ID);
+      }
+    }
+    dismissDraft();
+    setDraftResolved(true);
+  }
+
+  function dropDraft() {
+    discardDraft();
+    setDraftResolved(true);
+  }
+
+  // --- Field helpers ---------------------------------------------------------
+  const setPersonal = useCallback((key, val) => {
     setData((d) => ({ ...d, personal: { ...d.personal, [key]: val } }));
-  }
-  function setFieldVal(key, val) {
+  }, []);
+
+  const setFieldVal = useCallback((key, val) => {
     setData((d) => ({ ...d, [key]: val }));
-  }
-  function updateItem(listKey, index, key, val) {
+  }, []);
+
+  const setSectionTitle = useCallback((key, val) => {
+    setData((d) => ({ ...d, sectionTitles: { ...(d.sectionTitles || {}), [key]: val } }));
+  }, []);
+
+  const updateItem = useCallback((listKey, index, key, val) => {
     setData((d) => {
-      const list = [...d[listKey]];
+      const list = [...(d[listKey] || [])];
       list[index] = { ...list[index], [key]: val };
       return { ...d, [listKey]: list };
     });
-  }
-  function addItem(listKey, template) {
-    setData((d) => ({ ...d, [listKey]: [...d[listKey], template] }));
-  }
-  function removeItem(listKey, index) {
-    setData((d) => ({ ...d, [listKey]: d[listKey].filter((_, i) => i !== index) }));
-  }
+  }, []);
 
+  const addItem = useCallback((listKey, template) => {
+    setData((d) => ({ ...d, [listKey]: [...(d[listKey] || []), template] }));
+  }, []);
+
+  const removeItem = useCallback((listKey, index) => {
+    setData((d) => ({
+      ...d,
+      [listKey]: (d[listKey] || []).filter((_, i) => i !== index),
+    }));
+  }, []);
+
+  // --- Save ------------------------------------------------------------------
   async function handleSave() {
     setError("");
     setSaving(true);
     try {
-      const payload = { cvData: data, templateId };
       const res = await fetch(editId ? `/api/cv/${editId}` : "/api/cv", {
         method: editId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ cvData: data, templateId }),
       });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || "Could not save the CV.");
+
+      // Release the unload guard before navigating, and drop the local draft —
+      // the server copy is now authoritative.
+      savedRef.current = true;
+      setBaseline(signature(data, templateId));
+      clearDraft();
+
       router.push("/dashboard");
       router.refresh();
     } catch (e) {
@@ -108,7 +206,14 @@ export default function BuildWizard() {
     }
   }
 
-  const isLast = step === STEPS.length - 1;
+  const currentStep = STEPS[step];
+  const isLast = step === LAST_STEP;
+  const sectionTitles = data.sectionTitles || {};
+
+  const previewPane = useMemo(
+    () => <CVPreview cvData={data} templateId={templateId} debounceMs={PREVIEW_DEBOUNCE_MS} />,
+    [data, templateId]
+  );
 
   if (loadingCv) {
     return (
@@ -122,11 +227,49 @@ export default function BuildWizard() {
     <div className="grid gap-8 lg:grid-cols-2">
       {/* Form column */}
       <div>
+        {/* Draft restore prompt */}
+        {pendingDraft && (
+          <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
+                <History className="h-5 w-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-display font-bold text-amber-800">
+                  Unsaved draft found
+                </p>
+                <p className="mt-0.5 text-sm text-amber-700">
+                  You have changes from{" "}
+                  {new Date(pendingDraft.savedAt).toLocaleString("en-GB", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}{" "}
+                  that were never saved. Restore them?
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    onClick={restoreDraft}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-600"
+                  >
+                    <Check className="h-3.5 w-3.5" /> Restore draft
+                  </button>
+                  <button
+                    onClick={dropDraft}
+                    className="rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-100"
+                  >
+                    Discard it
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Step indicator */}
         <div className="mb-6 flex flex-wrap gap-2">
           {STEPS.map((s, i) => (
             <button
-              key={s}
+              key={s.label}
               onClick={() => setStep(i)}
               className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
                 i === step
@@ -136,13 +279,27 @@ export default function BuildWizard() {
                   : "bg-white text-slate-500 hover:bg-brand-50"
               }`}
             >
-              {i + 1}. {s}
+              {i + 1}. {s.label}
             </button>
           ))}
         </div>
 
         <div className="card min-h-[420px]">
-          <h2 className="mb-5 font-display text-xl font-bold text-ink">{STEPS[step]}</h2>
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <h2 className="font-display text-xl font-bold text-ink">{currentStep.label}</h2>
+            {dirty && (
+              <span className="chip bg-amber-50 text-amber-700">Unsaved changes</span>
+            )}
+          </div>
+
+          {/* Every section with a heading on the CV can be renamed. */}
+          {currentStep.key && (
+            <SectionTitleField
+              sectionKey={currentStep.key}
+              value={sectionTitles[currentStep.key]}
+              onChange={(v) => setSectionTitle(currentStep.key, v)}
+            />
+          )}
 
           {/* Personal details */}
           {step === 0 && (
@@ -176,7 +333,11 @@ export default function BuildWizard() {
                   <div className="mb-3 flex items-center justify-between">
                     <span className="text-sm font-bold text-brand-700">Qualification #{i + 1}</span>
                     {data.education.length > 1 && (
-                      <button onClick={() => removeItem("education", i)} className="text-slate-400 hover:text-red-500">
+                      <button
+                        onClick={() => removeItem("education", i)}
+                        className="text-slate-400 hover:text-red-500"
+                        aria-label={`Remove qualification ${i + 1}`}
+                      >
                         <Trash2 className="h-4 w-4" />
                       </button>
                     )}
@@ -196,7 +357,7 @@ export default function BuildWizard() {
                 </div>
               ))}
               <button
-                onClick={() => addItem("education", { degree: "", institution: "", location: "", startDate: "", endDate: "", details: "" })}
+                onClick={() => addItem("education", { ...blankEducation })}
                 className="btn-outline w-full !py-2.5 text-sm"
               >
                 <Plus className="h-4 w-4" /> Add qualification
@@ -212,7 +373,11 @@ export default function BuildWizard() {
                   <div className="mb-3 flex items-center justify-between">
                     <span className="text-sm font-bold text-brand-700">Experience #{i + 1}</span>
                     {data.experiences.length > 1 && (
-                      <button onClick={() => removeItem("experiences", i)} className="text-slate-400 hover:text-red-500">
+                      <button
+                        onClick={() => removeItem("experiences", i)}
+                        className="text-slate-400 hover:text-red-500"
+                        aria-label={`Remove experience ${i + 1}`}
+                      >
                         <Trash2 className="h-4 w-4" />
                       </button>
                     )}
@@ -235,18 +400,26 @@ export default function BuildWizard() {
                       <div key={bi} className="mb-2 flex gap-2">
                         <input
                           className="field-input"
-                          value={b}
+                          value={b || ""}
                           placeholder="A measurable achievement starting with a verb..."
                           onChange={(e) => {
-                            const bullets = [...ex.bullets];
+                            const bullets = [...(ex.bullets || [])];
                             bullets[bi] = e.target.value;
                             updateItem("experiences", i, "bullets", bullets);
                           }}
                         />
-                        {ex.bullets.length > 1 && (
+                        {(ex.bullets || []).length > 1 && (
                           <button
-                            onClick={() => updateItem("experiences", i, "bullets", ex.bullets.filter((_, x) => x !== bi))}
+                            onClick={() =>
+                              updateItem(
+                                "experiences",
+                                i,
+                                "bullets",
+                                (ex.bullets || []).filter((_, x) => x !== bi)
+                              )
+                            }
                             className="text-slate-400 hover:text-red-500"
+                            aria-label={`Remove achievement ${bi + 1}`}
                           >
                             <X className="h-4 w-4" />
                           </button>
@@ -254,7 +427,9 @@ export default function BuildWizard() {
                       </div>
                     ))}
                     <button
-                      onClick={() => updateItem("experiences", i, "bullets", [...(ex.bullets || []), ""])}
+                      onClick={() =>
+                        updateItem("experiences", i, "bullets", [...(ex.bullets || []), ""])
+                      }
                       className="text-sm font-semibold text-brand-700 hover:underline"
                     >
                       + Add bullet
@@ -263,7 +438,7 @@ export default function BuildWizard() {
                 </div>
               ))}
               <button
-                onClick={() => addItem("experiences", { jobTitle: "", company: "", location: "", startDate: "", endDate: "", current: false, bullets: [""] })}
+                onClick={() => addItem("experiences", { ...blankExperience, bullets: [""] })}
                 className="btn-outline w-full !py-2.5 text-sm"
               >
                 <Plus className="h-4 w-4" /> Add experience
@@ -279,7 +454,7 @@ export default function BuildWizard() {
                 <div key={i} className="flex gap-2">
                   <input
                     className="field-input"
-                    value={sk}
+                    value={sk || ""}
                     placeholder="e.g. React"
                     onChange={(e) => {
                       const skills = [...data.skills];
@@ -288,7 +463,11 @@ export default function BuildWizard() {
                     }}
                   />
                   {data.skills.length > 1 && (
-                    <button onClick={() => removeItem("skills", i)} className="text-slate-400 hover:text-red-500">
+                    <button
+                      onClick={() => removeItem("skills", i)}
+                      className="text-slate-400 hover:text-red-500"
+                      aria-label={`Remove skill ${i + 1}`}
+                    >
                       <X className="h-4 w-4" />
                     </button>
                   )}
@@ -312,7 +491,11 @@ export default function BuildWizard() {
                     <Field label="Level" value={lg.level} onChange={(v) => updateItem("languages", i, "level", v)} placeholder="Fluent" />
                   </div>
                   {data.languages.length > 1 && (
-                    <button onClick={() => removeItem("languages", i)} className="mb-2.5 text-slate-400 hover:text-red-500">
+                    <button
+                      onClick={() => removeItem("languages", i)}
+                      className="mb-2.5 text-slate-400 hover:text-red-500"
+                      aria-label={`Remove language ${i + 1}`}
+                    >
                       <X className="h-4 w-4" />
                     </button>
                   )}
@@ -332,7 +515,11 @@ export default function BuildWizard() {
                 <div key={i} className="rounded-xl border border-slate-100 p-4">
                   <div className="mb-3 flex items-center justify-between">
                     <span className="text-sm font-bold text-brand-700">Certificate #{i + 1}</span>
-                    <button onClick={() => removeItem("certifications", i)} className="text-slate-400 hover:text-red-500">
+                    <button
+                      onClick={() => removeItem("certifications", i)}
+                      className="text-slate-400 hover:text-red-500"
+                      aria-label={`Remove certificate ${i + 1}`}
+                    >
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
@@ -344,7 +531,7 @@ export default function BuildWizard() {
                 </div>
               ))}
               <button
-                onClick={() => addItem("certifications", { name: "", issuer: "", date: "" })}
+                onClick={() => addItem("certifications", { ...blankCertification })}
                 className="btn-outline w-full !py-2.5 text-sm"
               >
                 <Plus className="h-4 w-4" /> Add certificate
@@ -352,8 +539,16 @@ export default function BuildWizard() {
             </div>
           )}
 
-          {/* Template & save */}
+          {/* Custom sections */}
           {step === 7 && (
+            <CustomSections
+              sections={data.customSections}
+              onChange={(v) => setFieldVal("customSections", v)}
+            />
+          )}
+
+          {/* Template & save */}
+          {step === 8 && (
             <div className="space-y-6">
               <div>
                 <span className="field-label">Choose a template</span>
@@ -404,7 +599,7 @@ export default function BuildWizard() {
             <ArrowLeft className="h-4 w-4" /> Back
           </button>
           {!isLast && (
-            <button onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))} className="btn-primary !py-2.5">
+            <button onClick={() => setStep((s) => Math.min(LAST_STEP, s + 1))} className="btn-primary !py-2.5">
               Next <ArrowRight className="h-4 w-4" />
             </button>
           )}
@@ -417,7 +612,7 @@ export default function BuildWizard() {
           <div className="mb-2 flex items-center gap-2 text-sm text-slate-500">
             <Eye className="h-4 w-4" /> Live preview
           </div>
-          <CVPreview cvData={data} templateId={templateId} />
+          {previewPane}
         </div>
       </div>
 
@@ -433,13 +628,11 @@ export default function BuildWizard() {
         <div className="fixed inset-0 z-50 bg-white/95 p-4 lg:hidden">
           <div className="mb-3 flex items-center justify-between">
             <span className="font-semibold text-ink">Live preview</span>
-            <button onClick={() => setMobilePreview(false)} className="text-ink">
+            <button onClick={() => setMobilePreview(false)} className="text-ink" aria-label="Close preview">
               <X className="h-6 w-6" />
             </button>
           </div>
-          <div className="h-[85vh] overflow-auto">
-            <CVPreview cvData={data} templateId={templateId} />
-          </div>
+          <div className="h-[85vh] overflow-auto">{previewPane}</div>
         </div>
       )}
     </div>

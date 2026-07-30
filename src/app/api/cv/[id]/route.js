@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { isAdmin } from "@/lib/auth";
-import { extractMeta } from "@/lib/cvDefaults";
-import { TEMPLATES } from "@/lib/cvTemplates";
+import { sameOrigin } from "@/lib/security";
+import { validateCvData, extractCvMeta, parseCvData } from "@/lib/validations/cv";
+import { resolveTemplateId } from "@/lib/cvTemplates";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,11 +27,13 @@ export async function GET(request, { params }) {
   const res = await loadAuthorized(params.id, user);
   if (res.error) return NextResponse.json({ error: res.error }, { status: res.status });
 
+  // Normalise on read too: records written before the schema existed may hold
+  // fields the builder and preview would otherwise choke on.
   let data;
   try {
-    data = JSON.parse(res.cv.data);
+    data = parseCvData(JSON.parse(res.cv.data));
   } catch {
-    data = null;
+    data = parseCvData(null);
   }
 
   return NextResponse.json({
@@ -44,6 +47,10 @@ export async function GET(request, { params }) {
 
 // PUT /api/cv/[id] — update a CV (owner only).
 export async function PUT(request, { params }) {
+  if (!sameOrigin(request)) {
+    return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
+  }
+
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
 
@@ -58,18 +65,22 @@ export async function PUT(request, { params }) {
   }
 
   const { cvData, templateId, title } = body || {};
-  if (!cvData || typeof cvData !== "object") {
-    return NextResponse.json({ error: "CV data is missing." }, { status: 400 });
+  const validated = validateCvData(cvData);
+  if (!validated.ok) {
+    return NextResponse.json({ error: validated.error }, { status: 400 });
   }
-  const tpl = TEMPLATES.some((t) => t.id === templateId) ? templateId : res.cv.templateId;
-  const meta = extractMeta(cvData);
+
+  const tpl = resolveTemplateId(templateId) || resolveTemplateId(res.cv.templateId) || res.cv.templateId;
+  const meta = extractCvMeta(validated.data);
+  const cvTitle =
+    (typeof title === "string" && title.trim()) || meta.fullName || res.cv.title;
 
   await prisma.cV.update({
     where: { id: params.id },
     data: {
-      title: (title || meta.fullName || res.cv.title).slice(0, 120),
+      title: cvTitle.slice(0, 120),
       templateId: tpl,
-      data: JSON.stringify(cvData),
+      data: JSON.stringify(validated.data),
       fullName: meta.fullName,
       jobTitle: meta.jobTitle,
     },
@@ -80,6 +91,10 @@ export async function PUT(request, { params }) {
 
 // DELETE /api/cv/[id] — delete a CV (owner, or admin).
 export async function DELETE(request, { params }) {
+  if (!sameOrigin(request)) {
+    return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
+  }
+
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
 

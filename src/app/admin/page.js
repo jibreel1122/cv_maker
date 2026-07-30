@@ -30,15 +30,7 @@ import {
   ScrollText,
 } from "lucide-react";
 import CVPreview from "@/components/CVPreview";
-
-const TEMPLATE_NAMES = {
-  classic: "Classic",
-  modern: "Modern",
-  professional: "Professional",
-  minimal: "Minimal",
-  elegant: "Elegant",
-  compact: "Compact",
-};
+import { templateName } from "@/lib/cvTemplateMeta";
 
 const ROLE_STYLES = {
   OWNER: "bg-amber-100 text-amber-700",
@@ -472,7 +464,7 @@ export default function AdminDashboard() {
                         </td>
                         <td className="px-4 py-3">
                           <span className="chip bg-brand-50 text-brand-700">
-                            {TEMPLATE_NAMES[cv.templateId] || cv.templateId}
+                            {templateName(cv.templateId)}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-slate-500">

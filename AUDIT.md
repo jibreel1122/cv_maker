@@ -7,6 +7,29 @@
 
 ---
 
+## ⚠️ Status update — a later commit fixed some of this
+
+A follow-up change ("HR/ATS realism, custom sections, autosave, PDF and preview
+performance") resolved the findings below. **They are kept in this document for
+the record, each marked with its status** — do not spend review time on the
+resolved ones.
+
+| Finding | Status | What changed |
+| --- | --- | --- |
+| **H1** CSRF missing on CV routes | ✅ Fixed | `sameOrigin()` now guards CV `POST`/`PUT`/`DELETE`; verified a cross-origin `POST` returns 403 |
+| **H2** No CV input validation / stored DoS | ✅ Fixed | Zod schema at both write sites (`src/lib/validations/cv.js`), defensive renderer, `ErrorBoundary` around the preview |
+| **H3** Chrome launched per PDF request | ✅ Fixed | Shared singleton browser + 4-way concurrency gate; measured 557 ms cold → 100 ms warm |
+| **M1** Landing page 60fps render loop | ✅ Fixed | 10fps throttled tick, memoised on an integer frame; measured ~16× fewer iframe reloads |
+| **M2** Builder preview not debounced | ✅ Fixed | 250 ms debounce inside `CVPreview` |
+| **M3** No autosave / unsaved-changes guard | ✅ Fixed | `localStorage` autosave, restore prompt, `beforeunload` guard |
+| **M5** Admin showed raw template ids | ✅ Fixed | Both tables now call `templateName()`; legacy ids map to live templates |
+| **L10** Preview iframe `allow-same-origin` | ✅ Fixed | `sandbox=""` — no permissions at all |
+
+**Everything else in this document is still open**, including all four Critical
+findings (C1–C4) and H4. Those remain the priority.
+
+---
+
 ## How to read this
 
 Findings are grouped by severity and each one states **what it is**, **where**, **why it matters**, and **the fix**. Everything marked ✅ **Verified** was reproduced or confirmed by running something — not inferred from reading. Items without that marker are code-reading judgements.

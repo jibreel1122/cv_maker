@@ -17,12 +17,25 @@ user management, role assignment, and visibility into every CV.
   users from the dashboard.
 - **CV builder** — multi-step form with a live, pixel-accurate preview and
   modern UI animations.
-- **Templates** — **ten** distinct, single-column, ATS-safe English designs
-  (Classic, Modern, Professional, Minimal, Elegant, Compact, Executive,
-  Harvard, Corporate, Technical). All use standard web-safe fonts — no external
-  font requests, so previews and PDFs render identically and offline.
-- **PDF export** — generated through a real headless Chrome (Puppeteer), so the
-  download matches the preview exactly.
+- **Templates** — **five** ATS-proven English designs, each tuned to a hiring
+  context: **Classic Corporate**, **Modern Professional**, **Tech / Minimalist**,
+  **Executive**, and **Academic / Harvard**. Section order varies by template
+  (a technical CV leads with skills, an academic one with education). All use
+  standard fonts only — Arial, Calibri, Helvetica, Georgia, Garamond — with no
+  external font requests, so previews and PDFs render identically and offline.
+  CVs saved under the previous ten template ids are mapped onto their closest
+  equivalent automatically.
+- **Renameable sections** — any built-in heading can be relabelled ("Work
+  Experience" → "Relevant Experience"), with recognised presets suggested.
+- **Custom sections** — add your own sections (Projects, Volunteering,
+  Publications, Awards…) with full entries: title, subtitle, dates, location and
+  bullet points. They render identically to the built-in sections.
+- **Never lose your work** — the builder autosaves every change to
+  `localStorage`, offers the draft back if you return, and warns before you
+  close the tab with unsaved changes.
+- **PDF export** — generated through a real headless Chrome (Puppeteer) shared
+  across requests, so the download matches the preview exactly and a burst of
+  downloads does not spawn a browser per request.
 - **Admin dashboard** — overview stats + 30-day signups chart, a user table
   with inline role management, and a CV browser (view / download any CV).
 - **Modern green UI** — clean light theme with scroll-reveal and hover motion,
@@ -131,6 +144,12 @@ src/
     error.js           # friendly route error boundary (replaces blank error page)
     global-error.js    # root error boundary
   components/
+    ErrorBoundary.js   # isolates the CV renderer from the surrounding page
+    build/
+      BuildWizard.js   # the 9-step builder
+      CustomSections.js# user-defined section editor
+      SectionTitleField.js # rename any built-in heading
+      useCvDraft.js    # localStorage autosave + draft restore
     Reveal.js          # scroll-reveal animation wrapper
     Footer.js          # footer (with "Made by Jibreel Bornat")
     ...                # other UI components
@@ -142,9 +161,12 @@ src/
     rateLimit.js       # in-memory rate limiter
     audit.js           # audit logging
     security.js        # same-origin (CSRF) check
-    cvTemplates.js     # CV HTML/CSS generator — 10 ATS templates, web-safe fonts
+    cvTemplates.js     # CV HTML/CSS generator — renders a CV to a full document
+    cvTemplateMeta.js  # the 5 templates: fonts, accents, section order, legacy ids
+    cvSections.js      # standard section headings + rename/creation presets
+    validations/cv.js  # Zod schema — normalises all CV input before it is stored
     cvDefaults.js      # empty + sample CV data
-    pdf.js             # Puppeteer HTML → PDF
+    pdf.js             # Puppeteer HTML → PDF (shared browser, concurrency gate)
     prisma.js          # Prisma client singleton
   middleware.js        # route protection (/dashboard, /build, /admin, /settings)
 ```
@@ -160,7 +182,12 @@ src/
   passwords are never stored or logged.
 - **CSRF & cookies.** NextAuth session cookies are `HttpOnly`, `SameSite=Lax`,
   and `Secure` in production. The NextAuth callback is CSRF-token protected, and
-  custom state-changing routes additionally enforce a same-origin check.
+  every custom state-changing route — including all CV create/update/delete
+  endpoints — additionally enforces a same-origin check.
+- **Input validation.** All CV data passes through a Zod schema
+  (`src/lib/validations/cv.js`) before it is stored. The schema normalises rather
+  than rejects: every field is coerced to a safe type and capped in length, so
+  malformed input can neither be persisted nor crash the renderer.
 - **Rate limiting.** Login is limited to 5 failed attempts per IP per 15 minutes;
   registration to 3 accounts per IP per hour. The limiter is in-memory (per
   instance) with no external dependency — ideal for local development and
@@ -179,7 +206,9 @@ src/
 2. **PDF on serverless** — Puppeteer's bundled Chromium is too large for some
    serverless platforms. Replace `puppeteer` with `puppeteer-core` +
    `@sparticuz/chromium` in `src/lib/pdf.js`. On a regular Node host (Render,
-   Railway, a VPS, Docker) the current setup works as-is.
+   Railway, a VPS, Docker) the current setup works as-is. The renderer keeps one
+   shared browser per process and caps concurrent renders (see `pdf.js`), so a
+   long-lived Node host benefits most.
 3. **Environment** — set `NEXTAUTH_URL` to the production URL and a strong
    `NEXTAUTH_SECRET` (`openssl rand -base64 32`). In production the on-screen
    verification link is **not** returned by the API, so wire up a real email

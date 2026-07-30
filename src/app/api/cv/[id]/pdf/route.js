@@ -37,7 +37,9 @@ export async function GET(request, { params }) {
   }
 
   try {
-    const html = buildCvHtml(cvData, cv.templateId);
+    // "print" mode assumes Puppeteer applies part of the page margin itself, so
+    // the PDF comes out geometrically identical to the on-screen preview.
+    const html = buildCvHtml(cvData, cv.templateId, { mode: "print" });
     const pdf = await htmlToPdf(html);
 
     const rawName = (cv.fullName || cv.title || "cv").slice(0, 40);

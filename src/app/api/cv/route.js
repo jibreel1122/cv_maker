@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
-import { extractMeta } from "@/lib/cvDefaults";
-import { TEMPLATES } from "@/lib/cvTemplates";
+import { sameOrigin } from "@/lib/security";
+import { validateCvData, extractCvMeta } from "@/lib/validations/cv";
+import { resolveTemplateId, DEFAULT_TEMPLATE_ID } from "@/lib/cvTemplates";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,6 +32,10 @@ export async function GET() {
 
 // POST /api/cv — create a new CV for the signed-in user.
 export async function POST(request) {
+  if (!sameOrigin(request)) {
+    return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
+  }
+
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
 
@@ -42,18 +47,23 @@ export async function POST(request) {
   }
 
   const { cvData, templateId, title } = body || {};
-  if (!cvData || typeof cvData !== "object") {
-    return NextResponse.json({ error: "CV data is missing." }, { status: 400 });
+  const validated = validateCvData(cvData);
+  if (!validated.ok) {
+    return NextResponse.json({ error: validated.error }, { status: 400 });
   }
-  const tpl = TEMPLATES.some((t) => t.id === templateId) ? templateId : "classic";
-  const meta = extractMeta(cvData);
+
+  const tpl = resolveTemplateId(templateId) || DEFAULT_TEMPLATE_ID;
+  const meta = extractCvMeta(validated.data);
+  const cvTitle =
+    (typeof title === "string" && title.trim()) || meta.fullName || "Untitled CV";
 
   const cv = await prisma.cV.create({
     data: {
       userId: user.id,
-      title: (title || meta.fullName || "Untitled CV").slice(0, 120),
+      title: cvTitle.slice(0, 120),
       templateId: tpl,
-      data: JSON.stringify(cvData),
+      // Store the normalised form so every reader gets a known-good shape.
+      data: JSON.stringify(validated.data),
       fullName: meta.fullName,
       jobTitle: meta.jobTitle,
     },

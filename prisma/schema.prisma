@@ -87,8 +87,10 @@ model CV {
   userId     String
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   title      String   @default("Untitled CV")
-  templateId String   @default("classic")
-  data       String // JSON string holding the full CV contents
+  templateId String   @default("classic-corporate")
+  // JSON string holding the full CV contents. Written only after passing the
+  // schema in src/lib/validations/cv.js, so the stored shape is always known.
+  data       String
   fullName   String? // denormalised from data for quick listing in the admin panel
   jobTitle   String?
   createdAt  DateTime @default(now())

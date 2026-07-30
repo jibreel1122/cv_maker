@@ -1,5 +1,13 @@
 // Empty defaults plus a sample CV used for the live preview on the landing page.
 
+import { SECTION_KEYS } from "@/lib/cvSections";
+
+// A blank section-title map means "use the standard label for every section".
+// The builder writes a user's override into the matching key.
+function blankSectionTitles() {
+  return Object.fromEntries(SECTION_KEYS.map((k) => [k, ""]));
+}
+
 export const emptyCvData = {
   personal: {
     fullName: "",
@@ -10,9 +18,18 @@ export const emptyCvData = {
     linkedin: "",
     website: "",
   },
+  sectionTitles: blankSectionTitles(),
   summary: "",
   experiences: [
-    { jobTitle: "", company: "", location: "", startDate: "", endDate: "", current: false, bullets: [""] },
+    {
+      jobTitle: "",
+      company: "",
+      location: "",
+      startDate: "",
+      endDate: "",
+      current: false,
+      bullets: [""],
+    },
   ],
   education: [
     { degree: "", institution: "", location: "", startDate: "", endDate: "", details: "" },
@@ -20,6 +37,37 @@ export const emptyCvData = {
   skills: [""],
   languages: [{ name: "", level: "" }],
   certifications: [],
+  customSections: [],
+};
+
+// Blank entries used when the builder adds a new row.
+export const blankExperience = {
+  jobTitle: "",
+  company: "",
+  location: "",
+  startDate: "",
+  endDate: "",
+  current: false,
+  bullets: [""],
+};
+
+export const blankEducation = {
+  degree: "",
+  institution: "",
+  location: "",
+  startDate: "",
+  endDate: "",
+  details: "",
+};
+
+export const blankCertification = { name: "", issuer: "", date: "" };
+
+export const blankCustomItem = {
+  title: "",
+  subtitle: "",
+  dateRange: "",
+  location: "",
+  descriptionBullets: [""],
 };
 
 export const sampleCvData = {
@@ -32,6 +80,7 @@ export const sampleCvData = {
     linkedin: "linkedin.com/in/layla-khalil",
     website: "laylakhalil.dev",
   },
+  sectionTitles: blankSectionTitles(),
   summary:
     "Frontend developer with 4 years of experience building fast, accessible web apps with React and Next.js. Passionate about clean UI, performance, and great user experience.",
   experiences: [
@@ -75,14 +124,20 @@ export const sampleCvData = {
   certifications: [
     { name: "Meta Front-End Developer", issuer: "Coursera", date: "2023" },
   ],
+  customSections: [
+    {
+      title: "Projects & Portfolios",
+      items: [
+        {
+          title: "Open-source component library",
+          subtitle: "Personal project",
+          dateRange: "2023",
+          location: "",
+          descriptionBullets: [
+            "Published 30+ accessible React components used by 400+ developers.",
+          ],
+        },
+      ],
+    },
+  ],
 };
-
-// Pulls a name / title out of the CV data so they can be stored alongside the
-// CV row for quick listing in the admin dashboard.
-export function extractMeta(cvData) {
-  const p = (cvData && cvData.personal) || {};
-  return {
-    fullName: p.fullName || null,
-    jobTitle: p.jobTitle || null,
-  };
-}

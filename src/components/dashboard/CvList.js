@@ -10,19 +10,7 @@ import {
   Trash2,
   Loader2,
 } from "lucide-react";
-
-const TEMPLATE_NAMES = {
-  classic: "Classic",
-  modern: "Modern",
-  professional: "Professional",
-  minimal: "Minimal",
-  elegant: "Elegant",
-  compact: "Compact",
-  executive: "Executive",
-  harvard: "Harvard",
-  corporate: "Corporate",
-  technical: "Technical",
-};
+import { templateName } from "@/lib/cvTemplateMeta";
 
 export default function CvList() {
   const [cvs, setCvs] = useState(null);
@@ -89,7 +77,7 @@ export default function CvList() {
                   <FileText className="h-5 w-5" />
                 </span>
                 <span className="chip bg-brand-50 text-brand-700">
-                  {TEMPLATE_NAMES[cv.templateId] || cv.templateId}
+                  {templateName(cv.templateId)}
                 </span>
               </div>
               <h3 className="mt-4 truncate font-display text-lg font-bold text-ink">

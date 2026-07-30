@@ -41,7 +41,7 @@ function meta(data) {
 const sampleCvs = [
   {
     title: "Frontend Developer CV",
-    templateId: "modern",
+    templateId: "modern-professional",
     data: {
       personal: {
         fullName: "Layla A. Khalil",
@@ -88,7 +88,7 @@ const sampleCvs = [
   },
   {
     title: "Project Manager CV",
-    templateId: "professional",
+    templateId: "classic-corporate",
     data: {
       personal: {
         fullName: "Layla A. Khalil",
