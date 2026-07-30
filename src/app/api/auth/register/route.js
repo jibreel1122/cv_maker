@@ -79,11 +79,28 @@ export async function POST(request) {
   });
 
   if (!verificationRequired) {
-    return NextResponse.json({ ok: true, email, verified: true });
+    return NextResponse.json({
+      ok: true,
+      email,
+      verified: true,
+      bypassReason: "not_configured",
+    });
   }
 
   const token = createEmailToken(email);
-  const { delivered, link, error } = await sendVerificationEmail({ email, token });
+  const { delivered, link, restricted, autoVerified, error } =
+    await sendVerificationEmail({ email, token });
+
+  // Resend refused for a configuration reason (unverified domain or recipient),
+  // so the mailer verified the account instead of leaving it stranded.
+  if (restricted && autoVerified) {
+    return NextResponse.json({
+      ok: true,
+      email,
+      verified: true,
+      bypassReason: "resend_restricted",
+    });
+  }
 
   // A delivery failure must not undo a successful registration — the account
   // exists and the user can request a fresh link from the verification page.

@@ -48,16 +48,20 @@ function RegisterInner() {
   }
 
   if (done) {
-    // Verification is switched off (no mail transport configured), so the
-    // account is already usable.
+    // Verification was bypassed — either it is switched off, or Resend refused
+    // the message because the sending domain isn't verified yet. Either way the
+    // account is usable right now, so say so plainly.
     if (done.verified) {
       return (
         <AuthShell title="You're all set">
           <div className="flex flex-col items-center py-2 text-center">
             <CheckCircle2 className="h-12 w-12 text-brand-600" />
-            <h2 className="mt-4 font-display text-lg font-bold text-ink">Account created!</h2>
+            <h2 className="mt-4 font-display text-lg font-bold text-ink">
+              Account created! You can log in immediately.
+            </h2>
             <p className="mt-1 text-slate-600">
-              Your account <strong>{email}</strong> is ready to use.
+              Your account <strong>{email}</strong> is ready to use — no email
+              verification needed.
             </p>
             <Link href="/login" className="btn-primary mt-6 w-full text-sm">
               Sign in

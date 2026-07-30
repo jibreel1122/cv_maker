@@ -45,13 +45,22 @@ export async function POST(request) {
   }
 
   let link;
+  let autoVerified = false;
   const user = await prisma.user.findUnique({ where: { email } });
   if (user && !user.emailVerified) {
-    ({ link } = await sendVerificationEmail({ email, token: createEmailToken(email) }));
+    const res = await sendVerificationEmail({ email, token: createEmailToken(email) });
+    link = res.link;
+    // Resend refused for a configuration reason, so the mailer verified the
+    // account instead. Telling the user to check their inbox would be a lie.
+    autoVerified = Boolean(res.restricted && res.autoVerified);
   }
 
   // Always report success to avoid leaking whether an account exists/verified.
   // In local development we also return the fresh link so the UI can show it.
   const exposeLink = process.env.NODE_ENV !== "production";
-  return NextResponse.json({ ok: true, verifyUrl: exposeLink ? link : undefined });
+  return NextResponse.json({
+    ok: true,
+    verified: autoVerified,
+    verifyUrl: exposeLink && !autoVerified ? link : undefined,
+  });
 }

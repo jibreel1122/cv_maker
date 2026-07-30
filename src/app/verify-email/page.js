@@ -70,6 +70,13 @@ function VerifyInner() {
         body: JSON.stringify({ token }),
       });
       const json = await res.json().catch(() => ({}));
+      // The mail transport can't reach this address under the current
+      // configuration, so the account was activated instead of re-sent.
+      if (json.verified) {
+        setState("verified");
+        setTimeout(() => router.replace("/login"), 2200);
+        return;
+      }
       setNewLink(json.verifyUrl || "");
       setResent(true);
     } finally {

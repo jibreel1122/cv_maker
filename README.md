@@ -14,7 +14,8 @@ user management, role assignment, and visibility into every CV.
 
 - **Authentication** — email/password only (NextAuth). No external OAuth.
 - **Email verification** — optional, via Resend. Off by default so local and
-  unconfigured deployments work; enable it by setting `RESEND_API_KEY`.
+  unconfigured deployments work; enable it with `ENABLE_EMAIL_VERIFICATION="true"`
+  once a sending domain is verified.
 - **Roles** — `USER`, `ADMIN`, `OWNER`. The owner/admin can promote or demote
   users from the dashboard.
 - **CV builder** — multi-step form with a live, pixel-accurate preview and
@@ -110,38 +111,66 @@ open `/admin`. The owner can grant the `ADMIN` or `OWNER` role to any user.
 
 ### Email verification (Resend)
 
-Verification email is sent through [Resend](https://resend.com) and is **opt-in**:
-it only runs when `RESEND_API_KEY` is set.
+Verification email is sent through [Resend](https://resend.com). It is **opt-in
+and off by default**, and only runs when **both** of these are set:
 
-| `RESEND_API_KEY` | Behaviour |
-| ---------------- | --------- |
-| **not set** (default) | Verification is off. New accounts are created already verified and can sign in immediately. |
-| **set** | A verification email is sent. The account cannot sign in until the link is opened. |
+```
+ENABLE_EMAIL_VERIFICATION="true"
+RESEND_API_KEY="re_xxxxxxxxxxxx"
+```
 
-Set `ENABLE_EMAIL_VERIFICATION="false"` to force it off even when a key exists.
+| Configuration | Behaviour |
+| ------------- | --------- |
+| Flag unset / `"false"` (default) | Verification off. New accounts are created already verified and can sign in immediately. |
+| Flag `"true"` + working key + verified domain | Verification email sent. The account cannot sign in until the link is opened. |
+| Flag `"true"` but Resend refuses for a config reason | The account is verified automatically and a warning is logged — signup never gets stuck. |
 
-This coupling is deliberate: requiring a verified address while no mail can be
-sent would lock every new account out permanently, so the two switch together.
+Leave the flag off until your custom domain's DNS is verified in Resend. The
+coupling is deliberate: requiring a verified address while no mail can be sent
+would lock every new account out permanently.
 
-**To enable it:**
+#### Setting up a custom domain
 
-1. Create a free account at [resend.com](https://resend.com) and generate an API key.
-2. Add to `.env`:
+1. Create a free account at [resend.com](https://resend.com).
+2. **Domains → Add Domain**, then add the DKIM/SPF records it gives you to your
+   DNS. Wait for the domain to show **Verified**.
+3. **API Keys → Create API Key**.
+4. Set in your environment:
    ```
+   ENABLE_EMAIL_VERIFICATION="true"
    RESEND_API_KEY="re_xxxxxxxxxxxx"
-   EMAIL_FROM="CV Maker <onboarding@resend.dev>"
+   EMAIL_FROM="CV Maker <noreply@yourdomain.com>"
    NEXTAUTH_URL="https://your-domain.com"
    ```
-3. `EMAIL_FROM` must be on a domain verified in Resend. The shared
-   `onboarding@resend.dev` sender works without one, but **only delivers to the
-   email address that owns the Resend account** — fine for testing, not for real
-   users.
+   `EMAIL_FROM` must be an address **on the domain you verified**.
+
+> **About `onboarding@resend.dev`.** Resend's shared test sender needs no domain,
+> but it can **only deliver to the email address that owns your Resend account** —
+> every other recipient is rejected with a 403. Do not point `EMAIL_FROM` at it
+> for real users.
+
+#### What happens when Resend refuses a message
+
+The free tier rejects sends while a domain is still pending. Rather than leave
+those users unable to log in, `src/lib/mailer.js` separates two kinds of failure:
+
+- **Configuration errors** (403, `validation_error`, `invalid_from_address`,
+  `restricted_api_key`, bad or missing key) — the email could never arrive under
+  the current setup, so the account is verified automatically, a warning is
+  logged, and the sign-up screen says *"Account created! You can log in
+  immediately."*
+- **Transient errors** (rate limit, quota, network) — the message may still
+  arrive on a retry, so the account stays unverified and the user can request a
+  fresh link. Verification is not silently downgraded just because traffic spiked.
 
 The emailed link points at `/api/auth/verify-email?token=...`, which validates
 the signed 24-hour token, sets `emailVerified`, and redirects to a confirmation
-page. Expired links offer a resend. In development the link is also returned to
-the sign-up screen so you can click it without an inbox; it is never exposed in
-production.
+page. Expired links offer a resend.
+
+> **Security note.** While verification is off — or while it is auto-bypassing a
+> domain restriction — email addresses are effectively unconfirmed, so someone
+> can register with an address they do not own. That is the intended trade during
+> the transitional period; turn the flag on once your domain is verified.
 
 | Role  | Can do                                                            |
 | ----- | ---------------------------------------------------------------- |
@@ -241,7 +270,7 @@ src/
    long-lived Node host benefits most.
 3. **Environment** — set `NEXTAUTH_URL` to the production URL and a strong
    `NEXTAUTH_SECRET` (`openssl rand -base64 32`).
-4. **Email** — set `RESEND_API_KEY` and `EMAIL_FROM` to require verified
-   addresses. Leave `RESEND_API_KEY` unset to skip verification entirely; either
-   is a working configuration, but a verified-address requirement with no mail
-   transport is not, which is why the two are tied together.
+4. **Email** — verification stays off until you set
+   `ENABLE_EMAIL_VERIFICATION="true"` alongside a working `RESEND_API_KEY` and a
+   verified sending domain. Deploying with it off is a supported configuration:
+   accounts are simply usable immediately.

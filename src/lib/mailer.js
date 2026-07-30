@@ -1,41 +1,92 @@
 // Transactional email via Resend.
 //
-// Verification is only meaningful when there is somewhere for the email to go.
-// Rather than let a missing API key silently strand every new signup — an
-// account is created, no email arrives, and login refuses them forever — the
-// feature switches itself off when it is not configured, and registration marks
-// those accounts verified straight away.
+// Two rules govern this file, both aimed at the same failure: a user who signs
+// up, never receives a link, and can therefore never log in.
 //
-// Required to enable verification:
-//   RESEND_API_KEY  — from resend.com → API Keys
-//   EMAIL_FROM      — a verified sender, or `onboarding@resend.dev` for testing
-//                     (that test sender can only deliver to your own Resend
-//                     account address; a verified domain is needed for real users)
-//   NEXTAUTH_URL    — the public origin, used to build the link
+//   1. Verification is opt-in. It runs only when ENABLE_EMAIL_VERIFICATION is
+//      explicitly "true" AND an API key is present. Until a custom domain's DNS
+//      is verified in Resend, leave the flag off and every account is created
+//      ready to use.
 //
-// Set ENABLE_EMAIL_VERIFICATION="false" to force it off even when a key exists.
+//   2. When Resend refuses a message for a *configuration* reason — sending to
+//      an unverified recipient through the shared `onboarding@resend.dev`
+//      sender, an unverified From domain, a bad key — the account is verified
+//      automatically. Under that configuration the email could never have
+//      arrived, so waiting for it would strand the user permanently.
+//
+// Transient failures (rate limits, quota, network) deliberately do NOT
+// auto-verify: the message can still arrive on a retry, and silently downgrading
+// verification whenever traffic spikes would defeat the point of having it.
+//
+// Environment:
+//   ENABLE_EMAIL_VERIFICATION="true"  — required to turn verification on
+//   RESEND_API_KEY                    — from resend.com → API Keys
+//   EMAIL_FROM                        — an address on a domain verified in Resend
+//   NEXTAUTH_URL                      — public origin, used to build the link
 
 import { Resend } from "resend";
+import { prisma } from "@/lib/prisma";
 
-const DEFAULT_FROM = "onboarding@resend.dev";
+// Placeholder rather than the shared Resend test sender: `onboarding@resend.dev`
+// silently delivers only to the Resend account owner, which looks like success
+// while every real user gets nothing. An obviously-unset default fails loudly
+// into the auto-verify path instead.
+const DEFAULT_FROM = "noreply@yourdomain.com";
+
+// Resend error codes that mean "this configuration can never deliver to this
+// recipient". Anything here triggers the auto-verify fallback.
+const CONFIG_ERROR_CODES = new Set([
+  "validation_error", // shared test sender may only email the account owner
+  "invalid_from_address", // From domain not verified in Resend
+  "restricted_api_key",
+  "invalid_access",
+  "missing_api_key",
+  "invalid_api_key",
+  "not_found", // domain removed or never created
+]);
 
 export function appUrl() {
   return (process.env.NEXTAUTH_URL || "http://localhost:3000").replace(/\/$/, "");
 }
 
-// Verification runs only when a transport is configured and the flag has not
-// explicitly disabled it. Everything else in the app keys off this, so the two
-// halves — "send an email" and "require a verified address" — can never drift
-// apart and lock users out.
+// Verification is off unless explicitly switched on with a transport present.
+// Everything else in the app keys off this single function, so "send an email"
+// and "require a verified address" can never drift apart and lock users out.
 export function isEmailVerificationEnabled() {
-  if (process.env.ENABLE_EMAIL_VERIFICATION === "false") return false;
+  if (process.env.ENABLE_EMAIL_VERIFICATION !== "true") return false;
   return Boolean(process.env.RESEND_API_KEY);
+}
+
+// True when Resend rejected the message for a reason more configuration will
+// fix, rather than something a retry might.
+function isConfigurationRestriction(error) {
+  if (!error) return false;
+  if (error.statusCode === 403) return true;
+  return CONFIG_ERROR_CODES.has(error.name);
 }
 
 // The link a user clicks from their inbox. Points at the API route, which
 // verifies the token and then redirects to the friendly page.
 export function verificationLink(token) {
   return `${appUrl()}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
+}
+
+// Fallback for the case above: mark the address verified so the account stays
+// usable. Only ever called when the configuration made delivery impossible.
+async function autoVerify(email) {
+  try {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return false;
+    if (user.emailVerified) return true;
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerified: new Date() },
+    });
+    return true;
+  } catch (e) {
+    console.error("[mailer] auto-verification failed:", e?.message || e);
+    return false;
+  }
 }
 
 function buildEmail(link) {
@@ -85,8 +136,13 @@ function buildEmail(link) {
 // Sends the verification email.
 //
 // Never throws — a delivery failure must not roll back a registration that has
-// already succeeded. Returns { delivered, link, skipped, error } so the caller
-// can decide what to tell the user.
+// already succeeded. Returns:
+//   { delivered, link, skipped, restricted, autoVerified, error }
+//
+//   delivered    the message was accepted by Resend
+//   skipped      verification is switched off; nothing was attempted
+//   restricted   Resend refused for a configuration reason
+//   autoVerified the account was marked verified as a fallback
 export async function sendVerificationEmail({ email, token }) {
   const link = verificationLink(token);
 
@@ -96,26 +152,42 @@ export async function sendVerificationEmail({ email, token }) {
 
   const from = process.env.EMAIL_FROM || DEFAULT_FROM;
 
+  let error;
   try {
     const resend = new Resend(process.env.RESEND_API_KEY);
     const { text, html } = buildEmail(link);
-    const { error } = await resend.emails.send({
+    // Resend reports failures in the payload rather than throwing.
+    ({ error } = await resend.emails.send({
       from,
       to: [email],
       subject: "Verify your email — CV Maker",
       html,
       text,
-    });
+    }));
 
-    if (error) {
-      // Resend reports failures in the payload rather than throwing.
-      console.error("[mailer] Resend rejected the message:", error.message || error);
-      return { delivered: false, link, error: error.message || "Send failed." };
-    }
-
-    return { delivered: true, link };
+    if (!error) return { delivered: true, link };
   } catch (e) {
+    // Network-level failure — transient, so no auto-verification.
     console.error("[mailer] Could not reach Resend:", e?.message || e);
     return { delivered: false, link, error: e?.message || "Send failed." };
   }
+
+  if (isConfigurationRestriction(error)) {
+    console.warn(
+      "Resend restriction: Unverified domain/recipient. Auto-verifying user to prevent lockout."
+    );
+    console.warn(
+      `[mailer] Resend ${error.statusCode ?? "?"} ${error.name}: ${error.message} ` +
+        `(from="${from}", to="${email}"). ` +
+        `Verify a sending domain in Resend and set EMAIL_FROM to an address on it.`
+    );
+    const autoVerified = await autoVerify(email);
+    return { delivered: false, link, restricted: true, autoVerified, error: error.message };
+  }
+
+  // Transient (rate limit, quota, server error) — the user can retry.
+  console.error(
+    `[mailer] Resend rejected the message (${error.name}): ${error.message}`
+  );
+  return { delivered: false, link, error: error.message };
 }
