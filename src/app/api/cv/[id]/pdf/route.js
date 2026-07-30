@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
-import { isAdmin } from "@/lib/auth";
+import { canAccessCv } from "@/lib/permissions";
 import { buildCvHtml } from "@/lib/cvTemplates";
 import { htmlToPdf } from "@/lib/pdf";
 import { fontFaceCssForPrint } from "@/lib/cvFonts.server";
@@ -48,10 +48,11 @@ export async function GET(request, { params }) {
   }
 
   const cv = await prisma.cV.findUnique({ where: { id: params.id } });
-  if (!cv) return json({ error: "CV not found." }, 404);
-
-  if (cv.userId !== user.id && !isAdmin(user.role)) {
-    return json({ error: "Forbidden." }, 403);
+  const verdict = canAccessCv({ cv, user });
+  if (!verdict.allowed) {
+    return verdict.reason === "not-found"
+      ? json({ error: "CV not found." }, 404)
+      : json({ error: "Forbidden." }, 403);
   }
 
   let cvData;

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
-import { assignableRoles } from "@/lib/auth";
+import { canAssignRole, canDeleteUser } from "@/lib/permissions";
 import { sameOrigin } from "@/lib/security";
 import { logAudit } from "@/lib/audit";
 
@@ -45,30 +45,23 @@ export async function PATCH(request, { params }) {
   }
 
   // --- Role change ---
+  // The rule itself lives in `lib/permissions` (pure, unit-tested); this route
+  // only supplies the current owner count and maps the verdict onto copy.
   const newRole = body?.role;
-  const allowed = assignableRoles(actor.role);
-  if (!allowed.includes(newRole)) {
-    return NextResponse.json({ error: "You cannot assign that role." }, { status: 403 });
-  }
+  const ownerCount =
+    target.role === "OWNER" ? await prisma.user.count({ where: { role: "OWNER" } }) : 0;
 
-  if (actor.id === target.id) {
-    return NextResponse.json({ error: "You cannot change your own role." }, { status: 400 });
-  }
-
-  // Only an OWNER may modify another OWNER (e.g. demote them).
-  if (target.role === "OWNER" && actor.role !== "OWNER") {
-    return NextResponse.json({ error: "Only an owner can change an owner." }, { status: 403 });
-  }
-
-  // Never allow removing the last remaining OWNER.
-  if (target.role === "OWNER" && newRole !== "OWNER") {
-    const owners = await prisma.user.count({ where: { role: "OWNER" } });
-    if (owners <= 1) {
-      return NextResponse.json(
-        { error: "There must be at least one owner." },
-        { status: 400 }
-      );
-    }
+  const verdict = canAssignRole({ actor, target, newRole, ownerCount });
+  if (!verdict.allowed) {
+    const responses = {
+      "role-not-assignable": ["You cannot assign that role.", 403],
+      self: ["You cannot change your own role.", 400],
+      "owner-only": ["Only an owner can change an owner.", 403],
+      "last-owner": ["There must be at least one owner.", 400],
+      "not-found": ["User not found.", 404],
+    };
+    const [error, status] = responses[verdict.reason] || ["Forbidden.", 403];
+    return NextResponse.json({ error }, { status });
   }
 
   if (newRole !== target.role) {
@@ -100,15 +93,16 @@ export async function DELETE(request, { params }) {
   const target = await prisma.user.findUnique({ where: { id: params.id } });
   if (!target) return NextResponse.json({ error: "User not found." }, { status: 404 });
 
-  if (actor.id === target.id) {
-    return NextResponse.json({ error: "You cannot delete your own account." }, { status: 400 });
-  }
-  if (target.role === "OWNER") {
-    return NextResponse.json({ error: "You cannot delete an owner." }, { status: 403 });
-  }
-  // Only an owner can delete an admin.
-  if (target.role === "ADMIN" && actor.role !== "OWNER") {
-    return NextResponse.json({ error: "Only an owner can delete an admin." }, { status: 403 });
+  const verdict = canDeleteUser({ actor, target });
+  if (!verdict.allowed) {
+    const responses = {
+      self: ["You cannot delete your own account.", 400],
+      "owner-undeletable": ["You cannot delete an owner.", 403],
+      "owner-only": ["Only an owner can delete an admin.", 403],
+      "not-found": ["User not found.", 404],
+    };
+    const [error, status] = responses[verdict.reason] || ["Forbidden.", 403];
+    return NextResponse.json({ error }, { status });
   }
 
   await prisma.user.delete({ where: { id: target.id } });

@@ -68,10 +68,17 @@ export const PRESENT_LABEL = { en: "Present", ar: "حتى الآن" };
 export const DENSITIES = ["compact", "standard", "spacious"];
 export const DEFAULT_DENSITY = "standard";
 
+// Chosen so that every template stays inside the 9–12pt body range recruiters
+// and ATS parsers accept, at every density:
+//   compact  × 0.90 — smallest base is 10pt (tech / modern) → 9.0pt
+//   spacious × 1.09 — largest base is 11pt (executive / academic) → 11.99pt
+// 1.1 would take Executive to 12.1pt and out of the band, which is why this is
+// not the rounder number it looks like it should be. `tests/cvTemplates.test.js`
+// asserts the bound across the full template × density matrix.
 export const DENSITY_SCALE = {
   compact: 0.9,
   standard: 1,
-  spacious: 1.1,
+  spacious: 1.09,
 };
 
 export function densityValue(value) {

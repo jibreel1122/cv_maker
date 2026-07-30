@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A newer push to the same branch makes an in-flight run redundant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Lint, test and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      # `prisma generate` and `next build` both read the datasource block, so
+      # these must be defined — but nothing in this job connects to a database,
+      # so they are placeholders rather than secrets.
+      DATABASE_URL: postgresql://user:pass@localhost:5432/placeholder
+      DIRECT_URL: postgresql://user:pass@localhost:5432/placeholder
+      # Token signing refuses to fall back to its development key in production
+      # builds, so the build needs a value. Not a real secret.
+      NEXTAUTH_SECRET: ci-placeholder-secret-not-used-at-runtime
+      NEXTAUTH_URL: http://localhost:3000
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        # `npm ci` over `npm install`: it installs exactly the lockfile and
+        # fails if package.json and the lock have drifted apart.
+        run: npm ci
+        env:
+          # Chromium is only needed to render a PDF at runtime, never to lint,
+          # test or build — skipping the ~150MB download keeps CI fast.
+          PUPPETEER_SKIP_DOWNLOAD: "true"
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build

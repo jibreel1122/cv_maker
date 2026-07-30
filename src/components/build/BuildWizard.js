@@ -71,6 +71,7 @@ export default function BuildWizard() {
   const [loadingCv, setLoadingCv] = useState(!!editId);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [errorKey, setErrorKey] = useState("");
   const [mobilePreview, setMobilePreview] = useState(false);
   const [pageCount, setPageCount] = useState(1);
 
@@ -107,7 +108,10 @@ export default function BuildWizard() {
         setTemplateId(tpl);
         setBaseline(signature(loaded, tpl));
       } catch {
-        if (!cancelled) setError(t("builder.couldNotLoad"));
+        // Store the key, not the translated string: including `t` in the
+        // dependency list would refetch the CV whenever the user switches
+        // language, throwing away whatever they had typed.
+        if (!cancelled) setErrorKey("builder.couldNotLoad");
       } finally {
         if (!cancelled) setLoadingCv(false);
       }
@@ -608,9 +612,9 @@ export default function BuildWizard() {
                 {t("builder.templateStep.readyNote")}
               </div>
 
-              {error && (
+              {(error || errorKey) && (
                 <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">
-                  {error}
+                  {error || t(errorKey)}
                 </div>
               )}
 

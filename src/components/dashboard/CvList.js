@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   FileText,
@@ -19,7 +19,7 @@ export default function CvList() {
   const [loadError, setLoadError] = useState("");
   const [busyId, setBusyId] = useState(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       const res = await fetch("/api/cv");
       if (!res.ok) throw new Error();
@@ -32,11 +32,11 @@ export default function CvList() {
       setCvs([]);
       setLoadError(t("dashboard.loadFailed"));
     }
-  }
+  }, [t]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   async function handleDelete(id) {
     if (!confirm(t("dashboard.confirmDelete"))) return;

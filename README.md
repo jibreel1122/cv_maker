@@ -54,6 +54,33 @@ user management, role assignment, and visibility into every CV.
 - **Modern green UI** — clean light theme with scroll-reveal and hover motion,
   built with Tailwind CSS.
 
+## Development
+
+```bash
+npm run dev          # start the dev server
+npm test             # unit tests (Vitest) — 63 tests, ~0.5s
+npm run test:watch   # tests in watch mode
+npm run lint         # ESLint (next/core-web-vitals)
+npm run build        # production build
+```
+
+CI (`.github/workflows/ci.yml`) runs lint, tests and the build on every push and
+pull request to `main`.
+
+### What the tests cover
+
+They target the logic where a regression would be expensive and silent:
+
+| Suite | Covers |
+| ----- | ------ |
+| `tests/permissions.test.js` | The full role matrix — who may read, edit and delete a CV, who may assign which role, last-owner protection, self-modification. |
+| `tests/tokens.test.js` | HMAC signing, tampering, expiry, and the purpose split that stops a verification link being redeemed as a password reset. |
+| `tests/cvTemplates.test.js` | Malformed input never crashing the renderer, HTML escaping, Arabic/RTL output, the density band, and legacy template ids. |
+
+Authorisation rules live in `src/lib/permissions.js` as pure functions with no
+database or NextAuth dependency, so the matrix is testable in milliseconds and
+the route handlers only map a verdict onto an HTTP status.
+
 ## Tech stack
 
 - **Next.js 14** (App Router) + **React 18**
@@ -61,6 +88,7 @@ user management, role assignment, and visibility into every CV.
 - **Prisma** ORM on **PostgreSQL** (Supabase)
 - **Tailwind CSS**, **lucide-react**, **recharts**
 - **Puppeteer** for PDF generation
+- **Vitest** for unit tests, **ESLint** (`next/core-web-vitals`), **GitHub Actions** for CI
 
 ## Getting started
 
@@ -254,6 +282,26 @@ src/
   lib/cvFonts.js       # Cairo delivery: URL for preview, base64 for PDF
 public/fonts/          # vendored Cairo subsets (Arabic + Latin), OFL 1.1
 ```
+
+## Security headers
+
+`next.config.js` sets a Content-Security-Policy plus HSTS, `X-Frame-Options`,
+`X-Content-Type-Options`, `Referrer-Policy` and `Permissions-Policy` on every
+response, and removes `X-Powered-By`.
+
+Two decisions worth knowing about:
+
+- **`script-src` allows `'unsafe-inline'`.** The App Router streams its payload
+  through inline `<script>` tags, so a nonce-free policy has to permit them.
+  Tightening this means minting a per-request nonce in middleware and threading
+  it into the root layout — the upgrade path if this app ever renders
+  third-party HTML. It does not today: every user value reaching the DOM goes
+  through `esc()` in `cvTemplates.js`, which is covered by tests.
+- **`upgrade-insecure-requests` is deliberately absent.** It breaks a production
+  build served over plain HTTP (client-side navigation fails with
+  `ERR_SSL_PROTOCOL_ERROR`), and it protects only against mixed content from
+  subresources — of which this app loads none. HSTS is what pins real
+  deployments to HTTPS.
 
 ## Security & Privacy
 

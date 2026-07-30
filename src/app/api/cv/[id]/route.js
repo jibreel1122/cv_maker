@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
-import { isAdmin } from "@/lib/auth";
+import { canAccessCv } from "@/lib/permissions";
 import { sameOrigin } from "@/lib/security";
 import { validateCvData, extractCvMeta, parseCvData } from "@/lib/validations/cv";
 import { resolveTemplateId } from "@/lib/cvTemplates";
@@ -9,14 +9,18 @@ import { resolveTemplateId } from "@/lib/cvTemplates";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Loads a CV and checks the caller may access it (owner, or any admin).
+// Loads a CV and applies the shared access rule. The decision itself lives in
+// `lib/permissions` so it can be unit-tested without a database.
 async function loadAuthorized(id, user, { adminAllowed = true } = {}) {
   const cv = await prisma.cV.findUnique({ where: { id } });
-  if (!cv) return { error: "CV not found.", status: 404 };
-  const owns = cv.userId === user.id;
-  const elevated = adminAllowed && isAdmin(user.role);
-  if (!owns && !elevated) return { error: "Forbidden.", status: 403 };
-  return { cv, owns };
+  const verdict = canAccessCv({ cv, user, adminAllowed });
+
+  if (!verdict.allowed) {
+    return verdict.reason === "not-found"
+      ? { error: "CV not found.", status: 404 }
+      : { error: "Forbidden.", status: 403 };
+  }
+  return { cv, owns: verdict.owns };
 }
 
 // GET /api/cv/[id] — fetch a single CV (owner or admin).

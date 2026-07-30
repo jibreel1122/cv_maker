@@ -15,8 +15,9 @@ import { hit, peek, reset, clientIp } from "@/lib/rateLimit";
 import { logAudit } from "@/lib/audit";
 import { isEmailVerificationEnabled } from "@/lib/mailer";
 
-// Roles, ordered from least to most privileged.
-export const ROLES = ["USER", "ADMIN", "OWNER"];
+// Role helpers live in `permissions.js` — pure, no Prisma or NextAuth — and are
+// re-exported here so existing imports keep working.
+export { ROLES, isAdmin, isOwner, assignableRoles } from "@/lib/permissions";
 
 // Failed-login rate limit: 5 attempts per IP per 15 minutes.
 const LOGIN_MAX = 5;
@@ -137,20 +138,3 @@ export const authOptions = {
     },
   },
 };
-
-export function isAdmin(role) {
-  return role === "ADMIN" || role === "OWNER";
-}
-
-export function isOwner(role) {
-  return role === "OWNER";
-}
-
-// Which roles a given actor is allowed to assign.
-//   OWNER  → can set any role.
-//   ADMIN  → can only toggle between USER and ADMIN.
-export function assignableRoles(actorRole) {
-  if (actorRole === "OWNER") return ["USER", "ADMIN", "OWNER"];
-  if (actorRole === "ADMIN") return ["USER", "ADMIN"];
-  return [];
-}

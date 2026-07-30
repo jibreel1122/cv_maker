@@ -33,11 +33,15 @@ resolved ones.
 | **M7** No admin pagination | ✅ Fixed | Server-side paging on users and CVs with a shared pager |
 | **M9** Spoofable `clientIp` | ✅ Fixed | `TRUSTED_PROXY_HOPS`-aware extraction from the right of the chain; verified a spoofed left-most entry no longer buys a fresh bucket |
 | **L4** CvList swallowed fetch errors | ✅ Fixed | Load failures now show an error instead of the "no CVs yet" empty state |
+| **M8** No security headers | ✅ Fixed | CSP, HSTS, X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy in `next.config.js`; `X-Powered-By` removed. Verified in a browser: zero CSP violations across landing, auth, builder and admin |
+| **M12** `npm run lint` was non-functional | ✅ Fixed | `.eslintrc.json` added; `next lint` runs without prompting and reports no warnings or errors |
+| **M13** Zero tests, zero CI | ✅ Fixed | 63 Vitest tests over the permission matrix, token purposes and the CV renderer; GitHub Actions runs lint + test + build on push and PR to `main` |
+| **L11** No favicon | ✅ Fixed | `src/app/icon.svg` — the 404 noted in this audit is gone |
 
 **Still open:** C1's git-history purge (the password remains in commits
-`16092ad` and `a9ca972` — **rotate it**), M8 (security headers), M10–M13
-(verify-email rate limit, user enumeration, ESLint config, tests/CI), and most
-of the Low list. A further `npm audit` shows 5 advisories that would need Next
+`16092ad` and `a9ca972` — **rotate it**), M10 (no rate limit on
+`/api/auth/verify-email`), M11 (user enumeration on registration), and most of
+the Low list. A further `npm audit` shows 5 advisories that would need Next
 16 (a breaking major) — all in features this app does not use (Image Optimizer,
 rewrites) plus `nodemailer`, which is a transitive dependency of next-auth that
 this app never calls.
