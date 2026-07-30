@@ -1,4 +1,4 @@
-# CV Maker — free professional CV builder
+# Bornat CV Maker — free bilingual CV builder
 
 A free web app where users sign in with **email & password**, fill in a guided
 multi-step form, watch a **live preview** of their CV, choose from several
@@ -12,7 +12,12 @@ user management, role assignment, and visibility into every CV.
 
 ## Features
 
-- **Authentication** — email/password only (NextAuth). No external OAuth.
+- **Bilingual, Arabic and English** — the whole interface switches between
+  English and العربية, with `dir="rtl"` set server-side so there is no
+  left-to-right flash. CVs are separately bilingual: an Arabic CV is typeset
+  right-to-left in Cairo, with Arabic section headings.
+- **Authentication** — email/password only (NextAuth), with password reset and
+  change-password. No external OAuth.
 - **Email verification** — optional, via Resend. Off by default so local and
   unconfigured deployments work; enable it with `ENABLE_EMAIL_VERIFICATION="true"`
   once a sending domain is verified.
@@ -29,10 +34,15 @@ user management, role assignment, and visibility into every CV.
   CVs saved under the previous ten template ids are mapped onto their closest
   equivalent automatically.
 - **Renameable sections** — any built-in heading can be relabelled ("Work
-  Experience" → "Relevant Experience"), with recognised presets suggested.
-- **Custom sections** — add your own sections (Projects, Volunteering,
-  Publications, Awards…) with full entries: title, subtitle, dates, location and
-  bullet points. They render identically to the built-in sections.
+  Experience" → "Relevant Experience", "الخبرات العملية" → "الخبرة المهنية"),
+  with recognised presets suggested in the CV's own language.
+- **Smart page fitting** — one Compact / Standard / Spacious control scales the
+  whole document, with live page-break markers and a page count, so a
+  non-technical user can land their content on exactly the pages they want.
+- **Custom sections** — add your own (Projects, Volunteering, Publications,
+  Awards…) as either structured entries — title, subtitle, dates, location,
+  bullets — or a single free-text block for people who would rather just write
+  than fill in a form. Both render like the built-in sections.
 - **Never lose your work** — the builder autosaves every change to
   `localStorage`, offers the draft back if you return, and warns before you
   close the tab with unsaved changes.
@@ -98,16 +108,27 @@ This app stores everything in a PostgreSQL database hosted on
 openssl rand -base64 32      # paste into NEXTAUTH_SECRET in .env
 ```
 
-### Seeded accounts
+### Seeding the owner account
 
-| Account | Email | Password | Role |
-| ------- | ----- | -------- | ---- |
-| Owner | `jibreelebornat@gmail.com` | `Miskbo123` | OWNER |
-| Admin | `admin@cvmaker.local` | `Admin1234` | ADMIN |
-| Demo user (has 2 sample CVs) | `demo@cvmaker.local` | `Demo1234` | USER |
+`npm run db:seed` requires the owner credentials in your environment — there are
+no defaults, deliberately:
 
-All seeded accounts are pre-verified. Sign in at `/login`; the owner/admin can
-open `/admin`. The owner can grant the `ADMIN` or `OWNER` role to any user.
+```bash
+OWNER_EMAIL="you@example.com" \
+OWNER_PASSWORD="$(openssl rand -base64 18)" \
+OWNER_NAME="Your Name" \
+npm run db:seed
+```
+
+The seed fails loudly if either is missing, or if the password is under 12
+characters. A hardcoded fallback would give every deployment of this repository
+an admin account with publicly known credentials.
+
+Local demo accounts (`demo@bornatcv.local`, `admin@bornatcv.local`) are only
+created when `SEED_DEMO_USERS="true"` or `NODE_ENV=development`.
+
+Sign in at `/login`; the owner/admin can open `/admin`. The owner can grant the
+`ADMIN` or `OWNER` role to any user.
 
 ### Email verification (Resend)
 
@@ -228,6 +249,10 @@ src/
     pdf.js             # Puppeteer HTML → PDF (shared browser, concurrency gate)
     prisma.js          # Prisma client singleton
   middleware.js        # route protection (/dashboard, /build, /admin, /settings)
+  lib/i18n/            # en/ar dictionaries + locale config (dir, RTL)
+  lib/cvSections.js    # section headings & presets, per CV language + density
+  lib/cvFonts.js       # Cairo delivery: URL for preview, base64 for PDF
+public/fonts/          # vendored Cairo subsets (Arabic + Latin), OFL 1.1
 ```
 
 ## Security & Privacy

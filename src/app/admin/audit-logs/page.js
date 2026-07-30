@@ -12,6 +12,10 @@ const ACTIONS = [
   "ROLE_CHANGED",
   "USER_DELETED_BY_ADMIN",
   "EMAIL_VERIFIED",
+  "PASSWORD_RESET_REQUESTED",
+  "PASSWORD_RESET",
+  "PASSWORD_CHANGED",
+  "PASSWORD_CHANGE_FAILED",
 ];
 
 const ACTION_STYLES = {
@@ -21,6 +25,10 @@ const ACTION_STYLES = {
   ROLE_CHANGED: "bg-indigo-100 text-indigo-700",
   USER_DELETED_BY_ADMIN: "bg-amber-100 text-amber-700",
   EMAIL_VERIFIED: "bg-slate-100 text-slate-600",
+  PASSWORD_RESET_REQUESTED: "bg-sky-100 text-sky-700",
+  PASSWORD_RESET: "bg-sky-100 text-sky-700",
+  PASSWORD_CHANGED: "bg-sky-100 text-sky-700",
+  PASSWORD_CHANGE_FAILED: "bg-red-100 text-red-700",
 };
 
 export default function AuditLogsPage() {
@@ -123,7 +131,7 @@ export default function AuditLogsPage() {
         </form>
 
         <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white">
-          <table className="w-full min-w-[760px] text-left text-sm">
+          <table className="w-full min-w-[760px] text-start text-sm">
             <thead className="bg-slate-50 text-slate-500">
               <tr>
                 <th className="px-4 py-3 font-semibold">Time</th>

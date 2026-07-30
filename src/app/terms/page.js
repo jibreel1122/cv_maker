@@ -1,6 +1,7 @@
+import { pageTitle } from "@/lib/brand";
 import LegalLayout, { Section } from "@/components/legal/LegalLayout";
 
-export const metadata = { title: "Terms of Service | CV Maker" };
+export const metadata = { title: pageTitle("Terms of Service") };
 
 export default function TermsPage() {
   return (

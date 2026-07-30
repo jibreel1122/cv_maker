@@ -26,6 +26,7 @@
 
 import { Resend } from "resend";
 import { prisma } from "@/lib/prisma";
+import { BRAND_NAME } from "@/lib/brand";
 
 // Placeholder rather than the shared Resend test sender: `onboarding@resend.dev`
 // silently delivers only to the Resend account owner, which looks like success
@@ -71,6 +72,12 @@ export function verificationLink(token) {
   return `${appUrl()}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
 }
 
+// Password reset lands on a page, not an API route: the user has to type a new
+// password, so there is nothing to apply until they submit the form.
+export function passwordResetLink(token) {
+  return `${appUrl()}/reset-password?token=${encodeURIComponent(token)}`;
+}
+
 // Fallback for the case above: mark the address verified so the account stays
 // usable. Only ever called when the configuration made delivery impossible.
 async function autoVerify(email) {
@@ -93,7 +100,7 @@ function buildEmail(link) {
   const text = [
     "Confirm your email address",
     "",
-    "Thanks for signing up to CV Maker. Open the link below to activate your account:",
+    `Thanks for signing up to ${BRAND_NAME}. Open the link below to activate your account:`,
     "",
     link,
     "",
@@ -109,8 +116,8 @@ function buildEmail(link) {
   <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px;">
     <h1 style="margin:0 0 8px;font-size:20px;color:#0f766e;">Confirm your email address</h1>
     <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#444;">
-      Thanks for signing up to CV Maker. Click the button below to activate your
-      account and start building your CV.
+      Thanks for signing up to ${BRAND_NAME}. Click the button below to activate
+      your account and start building your CV.
     </p>
     <a href="${link}"
        style="display:inline-block;background:#0f766e;color:#ffffff;text-decoration:none;
@@ -131,6 +138,85 @@ function buildEmail(link) {
 </html>`;
 
   return { text, html };
+}
+
+function buildResetEmail(link) {
+  const text = [
+    "Reset your password",
+    "",
+    `Someone asked to reset the password for your ${BRAND_NAME} account.`,
+    "Open the link below to choose a new one:",
+    "",
+    link,
+    "",
+    "This link expires in 1 hour and can only be used once.",
+    "If you did not request this, you can ignore this email — your password will not change.",
+  ].join("\n");
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<body style="margin:0;padding:24px;background:#f4f7f6;font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;">
+  <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px;">
+    <h1 style="margin:0 0 8px;font-size:20px;color:#0f766e;">Reset your password</h1>
+    <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#444;">
+      Someone asked to reset the password for your ${BRAND_NAME} account. Click
+      below to choose a new one.
+    </p>
+    <a href="${link}"
+       style="display:inline-block;background:#0f766e;color:#ffffff;text-decoration:none;
+              font-size:15px;font-weight:bold;padding:12px 24px;border-radius:8px;">
+      Choose a new password
+    </a>
+    <p style="margin:24px 0 6px;font-size:13px;color:#666;">
+      Or paste this link into your browser:
+    </p>
+    <p style="margin:0;font-size:12px;word-break:break-all;color:#0f766e;">${link}</p>
+    <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
+    <p style="margin:0;font-size:12px;color:#888;line-height:1.6;">
+      This link expires in 1 hour. If you did not request a reset you can ignore
+      this email — your password will not change.
+    </p>
+  </div>
+</body>
+</html>`;
+
+  return { text, html };
+}
+
+// Sends a password-reset email.
+//
+// Unlike verification there is no auto-fallback here: silently "resetting" a
+// password because the mail transport is misconfigured would be an account
+// takeover, not a convenience. If this cannot be delivered the caller reports a
+// generic success anyway (so the endpoint does not leak which addresses exist)
+// and the failure is logged for the operator.
+export async function sendPasswordResetEmail({ email, token }) {
+  const link = passwordResetLink(token);
+
+  if (!process.env.RESEND_API_KEY) {
+    return { delivered: false, skipped: true, link };
+  }
+
+  const from = process.env.EMAIL_FROM || DEFAULT_FROM;
+  try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const { text, html } = buildResetEmail(link);
+    const { error } = await resend.emails.send({
+      from,
+      to: [email],
+      subject: `Reset your password — ${BRAND_NAME}`,
+      html,
+      text,
+    });
+    if (error) {
+      console.error("[mailer] password reset send failed:", error.message || error);
+      return { delivered: false, link, error: error.message };
+    }
+    return { delivered: true, link };
+  } catch (e) {
+    console.error("[mailer] could not reach Resend for password reset:", e?.message || e);
+    return { delivered: false, link, error: e?.message || "Send failed." };
+  }
 }
 
 // Sends the verification email.
@@ -160,7 +246,7 @@ export async function sendVerificationEmail({ email, token }) {
     ({ error } = await resend.emails.send({
       from,
       to: [email],
-      subject: "Verify your email — CV Maker",
+      subject: `Verify your email — ${BRAND_NAME}`,
       html,
       text,
     }));

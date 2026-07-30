@@ -1,4 +1,4 @@
-# CV Maker — Technical Audit
+# Bornat CV Maker — Technical Audit
 
 **Scope:** full repository review — `src/` (52 files), `prisma/`, config, docs
 **Commit audited:** `040c54d`
@@ -9,8 +9,7 @@
 
 ## ⚠️ Status update — a later commit fixed some of this
 
-A follow-up change ("HR/ATS realism, custom sections, autosave, PDF and preview
-performance") resolved the findings below. **They are kept in this document for
+Later commits resolved the findings below. **They are kept in this document for
 the record, each marked with its status** — do not spend review time on the
 resolved ones.
 
@@ -25,13 +24,23 @@ resolved ones.
 | **M5** Admin showed raw template ids | ✅ Fixed | Both tables now call `templateName()`; legacy ids map to live templates |
 | **L10** Preview iframe `allow-same-origin` | ✅ Fixed | `sandbox=""` — no permissions at all |
 | **C4** Production signup completely broken | ✅ Fixed | Resend transport in `src/lib/mailer.js`; verification is opt-in and auto-verifies accounts when no transport is configured, so signup works in every configuration |
+| **C1** Owner credentials in repo | ⚠️ Partly | Removed from `README.md`, `.env.example` and `prisma/seed.js` — the seed now *requires* `OWNER_EMAIL`/`OWNER_PASSWORD` and fails loudly. **The password is still in git history; rotating it is still required.** |
+| **C2** Next.js middleware bypass (CVE-2025-29927) | ✅ Fixed | Upgraded to 14.2.35; the advisory no longer appears in `npm audit` |
+| **C3** No password reset | ✅ Fixed | `/forgot-password` + `/reset-password` with purpose-scoped HMAC tokens, plus change-password in `/settings` |
+| **H4** Audit retention never implemented | ✅ Fixed | `purgeExpiredAuditLogs()` runs opportunistically from admin reads; verified a 120-day-old row is deleted |
+| **M4** Case-sensitive admin search | ✅ Fixed | `mode: "insensitive"` on users, CVs and audit-log queries |
+| **M6** Stats loaded every user into memory | ✅ Fixed | `groupBy` + a single grouped SQL query for the 30-day chart |
+| **M7** No admin pagination | ✅ Fixed | Server-side paging on users and CVs with a shared pager |
+| **M9** Spoofable `clientIp` | ✅ Fixed | `TRUSTED_PROXY_HOPS`-aware extraction from the right of the chain; verified a spoofed left-most entry no longer buys a fresh bucket |
+| **L4** CvList swallowed fetch errors | ✅ Fixed | Load failures now show an error instead of the "no CVs yet" empty state |
 
-**C3 is partially unblocked:** the mail transport C4 needed now exists, so a
-password-reset flow only has to be written — it is no longer waiting on an
-infrastructure decision. The flow itself is still missing.
-
-**Everything else in this document is still open**, including C1, C2, C3 and
-H4. Those remain the priority.
+**Still open:** C1's git-history purge (the password remains in commits
+`16092ad` and `a9ca972` — **rotate it**), M8 (security headers), M10–M13
+(verify-email rate limit, user enumeration, ESLint config, tests/CI), and most
+of the Low list. A further `npm audit` shows 5 advisories that would need Next
+16 (a breaking major) — all in features this app does not use (Image Optimizer,
+rewrites) plus `nodemailer`, which is a transitive dependency of next-auth that
+this app never calls.
 
 ---
 

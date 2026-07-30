@@ -19,6 +19,9 @@ import {
   SECTION_KEYS,
   SECTION_TITLE_PRESETS,
   CUSTOM_SECTION_PRESETS,
+  cvLanguage,
+  densityValue,
+  customLayout,
 } from "@/lib/cvSections";
 
 // --- Limits -----------------------------------------------------------------
@@ -33,6 +36,7 @@ export const LIMITS = {
   languages: 20,
   customSections: 10,
   sectionTitle: 80,
+  freeText: 4000, // a whole free-text section
 };
 
 // --- Primitives -------------------------------------------------------------
@@ -86,6 +90,16 @@ export {
   SECTION_TITLE_PRESETS,
   CUSTOM_SECTION_PRESETS,
 };
+
+// Presentation settings for the CV itself: the language it is written in and
+// how tightly it is set. Independent of the site's interface language.
+const settingsSchema = z.any().transform((v) => {
+  const src = v && typeof v === "object" && !Array.isArray(v) ? v : {};
+  return {
+    language: cvLanguage(src.language),
+    density: densityValue(src.density),
+  };
+});
 
 const sectionTitlesSchema = z.any().transform((v) => {
   const src = v && typeof v === "object" && !Array.isArray(v) ? v : {};
@@ -153,7 +167,11 @@ const customItemSchema = z.object({
 
 const customSectionSchema = z.object({
   title: text(LIMITS.sectionTitle),
+  // "entries" = the structured shape above; "freeText" = a single block of prose
+  // for users who would rather write than fill in fields.
+  layout: z.any().transform((v) => customLayout(v)),
   items: list(customItemSchema, LIMITS.items),
+  text: text(LIMITS.freeText),
 });
 
 // --- The CV ------------------------------------------------------------------
@@ -162,6 +180,7 @@ export const cvDataSchema = z.any().transform((v) => {
   const src = v && typeof v === "object" && !Array.isArray(v) ? v : {};
   return {
     personal: personalSchema.parse(src.personal),
+    settings: settingsSchema.parse(src.settings),
     sectionTitles: sectionTitlesSchema.parse(src.sectionTitles),
     summary: text(LIMITS.longText).parse(src.summary),
     experiences: list(experienceSchema, LIMITS.items).parse(src.experiences),

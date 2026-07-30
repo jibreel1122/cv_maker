@@ -1,6 +1,10 @@
 // Empty defaults plus a sample CV used for the live preview on the landing page.
 
-import { SECTION_KEYS } from "@/lib/cvSections";
+import {
+  SECTION_KEYS,
+  DEFAULT_CV_LANGUAGE,
+  DEFAULT_DENSITY,
+} from "@/lib/cvSections";
 
 // A blank section-title map means "use the standard label for every section".
 // The builder writes a user's override into the matching key.
@@ -9,6 +13,9 @@ function blankSectionTitles() {
 }
 
 export const emptyCvData = {
+  // How the CV itself is typeset — its own language and spacing, independent of
+  // the language the site interface happens to be in.
+  settings: { language: DEFAULT_CV_LANGUAGE, density: DEFAULT_DENSITY },
   personal: {
     fullName: "",
     jobTitle: "",
@@ -62,6 +69,13 @@ export const blankEducation = {
 
 export const blankCertification = { name: "", issuer: "", date: "" };
 
+export const blankCustomSection = {
+  title: "",
+  layout: "entries",
+  items: [],
+  text: "",
+};
+
 export const blankCustomItem = {
   title: "",
   subtitle: "",
@@ -71,6 +85,7 @@ export const blankCustomItem = {
 };
 
 export const sampleCvData = {
+  settings: { language: DEFAULT_CV_LANGUAGE, density: DEFAULT_DENSITY },
   personal: {
     fullName: "Layla A. Khalil",
     jobTitle: "Frontend Developer",
@@ -127,6 +142,8 @@ export const sampleCvData = {
   customSections: [
     {
       title: "Projects & Portfolios",
+      layout: "entries",
+      text: "",
       items: [
         {
           title: "Open-source component library",

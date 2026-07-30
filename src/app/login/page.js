@@ -6,8 +6,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { Loader2, Mail, Lock } from "lucide-react";
 import AuthShell from "@/components/auth/AuthShell";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 function LoginInner() {
+  const t = useT();
   const router = useRouter();
   const params = useSearchParams();
   const callbackUrl = params.get("callbackUrl") || "/dashboard";
@@ -34,7 +36,7 @@ function LoginInner() {
       setError(
         res.error && res.error !== "CredentialsSignin"
           ? res.error
-          : "Incorrect email or password."
+          : t("auth.incorrectCredentials")
       );
       setLoading(false);
       return;
@@ -45,49 +47,55 @@ function LoginInner() {
 
   return (
     <AuthShell
-      title="Welcome back"
-      subtitle="Sign in to manage and download your CVs."
+      title={t("auth.welcomeBack")}
+      subtitle={t("auth.signInSubtitle")}
       footer={
         <>
-          Don&apos;t have an account?{" "}
+          {t("auth.noAccount")}{" "}
           <Link href="/register" className="font-semibold text-brand-700 hover:underline">
-            Create one
+            {t("auth.createOne")}
           </Link>
         </>
       }
     >
       <form onSubmit={handleSubmit} className="grid gap-4">
         <label className="block">
-          <span className="field-label">Email</span>
+          <span className="field-label">{t("common.email")}</span>
           <div className="relative">
-            <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Mail className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="email"
               required
               autoComplete="email"
-              className="field-input pl-10"
+              className="field-input ps-10"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@email.com"
+              placeholder={t("auth.emailPlaceholder")}
             />
           </div>
         </label>
 
         <label className="block">
-          <span className="field-label">Password</span>
+          <span className="field-label">{t("common.password")}</span>
           <div className="relative">
-            <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Lock className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="password"
               required
               autoComplete="current-password"
-              className="field-input pl-10"
+              className="field-input ps-10"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
             />
           </div>
         </label>
+
+        <div className="-mt-2 text-end">
+          <Link href="/forgot-password" className="text-xs font-semibold text-brand-700 hover:underline">
+            {t("auth.forgotPassword")}
+          </Link>
+        </div>
 
         {error && (
           <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">
@@ -97,7 +105,7 @@ function LoginInner() {
 
         <button type="submit" disabled={loading} className="btn-primary w-full">
           {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
-          Sign in
+          {t("common.signIn")}
         </button>
       </form>
     </AuthShell>

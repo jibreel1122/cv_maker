@@ -1,6 +1,7 @@
+import { pageTitle } from "@/lib/brand";
 import LegalLayout, { Section } from "@/components/legal/LegalLayout";
 
-export const metadata = { title: "Privacy Policy | CV Maker" };
+export const metadata = { title: pageTitle("Privacy Policy") };
 
 export default function PrivacyPage() {
   return (
@@ -12,7 +13,7 @@ export default function PrivacyPage() {
       </p>
 
       <Section heading="What we collect">
-        <ul className="list-disc space-y-1 pl-5">
+        <ul className="list-disc space-y-1 ps-5">
           <li>
             <strong>Account data:</strong> your name, email address, and a securely
             hashed password.

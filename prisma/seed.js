@@ -1,12 +1,13 @@
 // Seeds the database for local development. Safe to run repeatedly — every
 // account is upserted and sample CVs are only created if the demo user has none.
 //
-//   - OWNER account (login: jibreelebornat@gmail.com / Miskbo123 by default).
-//   - A couple of pre-verified demo users.
+//   - The OWNER account, from OWNER_EMAIL / OWNER_PASSWORD / OWNER_NAME.
+//   - A couple of pre-verified demo users (local development only).
 //   - A couple of sample CVs for one of the demo users.
 //
-// No environment variables are required; values fall back to sensible local
-// defaults. Override with OWNER_EMAIL / OWNER_PASSWORD / OWNER_NAME if you like.
+// OWNER_EMAIL and OWNER_PASSWORD are REQUIRED and have no defaults. A seed that
+// falls back to a hardcoded password creates a known-credential admin account on
+// every deployment that runs it, so this fails loudly instead.
 //
 // Run automatically before `npm run dev`, or manually with:  npm run db:seed
 
@@ -144,30 +145,54 @@ async function upsertUser({ email, name, password, role }) {
 }
 
 async function main() {
-  // 1) Owner account.
-  const ownerEmail = (process.env.OWNER_EMAIL || "jibreelebornat@gmail.com").trim().toLowerCase();
+  // 1) Owner account — credentials must come from the environment.
+  const ownerEmail = (process.env.OWNER_EMAIL || "").trim().toLowerCase();
+  const ownerPassword = process.env.OWNER_PASSWORD || "";
+
+  if (!ownerEmail || !ownerPassword) {
+    throw new Error(
+      "OWNER_EMAIL and OWNER_PASSWORD are required.\n" +
+        "  Set them before seeding, e.g.\n" +
+        '    OWNER_EMAIL="you@example.com" OWNER_PASSWORD="$(openssl rand -base64 18)" npm run db:seed\n' +
+        "  They are intentionally not defaulted: a fallback password would create an\n" +
+        "  admin account with publicly known credentials on every deployment."
+    );
+  }
+  if (ownerPassword.length < 12) {
+    throw new Error("OWNER_PASSWORD must be at least 12 characters.");
+  }
+
   const owner = await upsertUser({
     email: ownerEmail,
-    name: process.env.OWNER_NAME || "Jibreel Ebornat",
-    password: process.env.OWNER_PASSWORD || "Miskbo123",
+    name: process.env.OWNER_NAME || "Owner",
+    password: ownerPassword,
     role: "OWNER",
   });
   console.log(`✔ Owner ready: ${owner.email} (${owner.role})`);
 
-  // 2) Demo users.
+  // 2) Demo users — local development only. SEED_DEMO_USERS=true opts in;
+  //    they are never created otherwise, so production seeds stay clean.
+  const wantDemo =
+    process.env.SEED_DEMO_USERS === "true" || process.env.NODE_ENV === "development";
+  if (!wantDemo) {
+    console.log("• Skipping demo users (set SEED_DEMO_USERS=true to create them).");
+    return;
+  }
+
+  const demoPassword = process.env.DEMO_PASSWORD || "Demo1234!local";
   const demo = await upsertUser({
-    email: "demo@cvmaker.local",
+    email: "demo@bornatcv.local",
     name: "Demo User",
-    password: "Demo1234",
+    password: demoPassword,
     role: "USER",
   });
   await upsertUser({
-    email: "admin@cvmaker.local",
+    email: "admin@bornatcv.local",
     name: "Admin User",
-    password: "Admin1234",
+    password: demoPassword,
     role: "ADMIN",
   });
-  console.log("✔ Demo users ready: demo@cvmaker.local / admin@cvmaker.local");
+  console.log("✔ Demo users ready: demo@bornatcv.local / admin@bornatcv.local");
 
   // 3) Sample CVs for the demo user — only if they have none yet.
   const existingCvs = await prisma.cV.count({ where: { userId: demo.id } });
@@ -185,7 +210,7 @@ async function main() {
         },
       });
     }
-    console.log(`✔ Created ${sampleCvs.length} sample CVs for demo@cvmaker.local`);
+    console.log(`✔ Created ${sampleCvs.length} sample CVs for demo@bornatcv.local`);
   } else {
     console.log("• Demo user already has CVs — skipping sample CV creation.");
   }

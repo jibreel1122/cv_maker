@@ -1,27 +1,30 @@
 "use client";
 
 import { useId } from "react";
-import { DEFAULT_SECTION_TITLES, SECTION_TITLE_PRESETS } from "@/lib/cvSections";
+import { defaultSectionTitle, sectionTitlePresets } from "@/lib/cvSections";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 // Lets the user rename any built-in section heading — "Work Experience" becomes
-// "Relevant Experience", "Professional Summary" becomes "Career Objective", and
-// so on.
+// "Relevant Experience", "الخبرات العملية" becomes "الخبرة المهنية", and so on.
 //
 // The presets are the headings ATS parsers and recruiters recognise, offered
 // through a datalist so they are one keystroke away without being enforced.
+// They follow the CV's own language, not the interface language: someone using
+// the Arabic interface to write an English CV should be offered English ones.
 // Leaving the field blank keeps the standard label.
-export default function SectionTitleField({ sectionKey, value, onChange }) {
+export default function SectionTitleField({ sectionKey, value, onChange, cvLanguage }) {
+  const t = useT();
   const listId = useId();
-  const fallback = DEFAULT_SECTION_TITLES[sectionKey] || "";
-  const presets = SECTION_TITLE_PRESETS[sectionKey] || [];
+  const fallback = defaultSectionTitle(sectionKey, cvLanguage);
+  const presets = sectionTitlePresets(sectionKey, cvLanguage);
 
   return (
     <div className="mb-5 rounded-xl border border-slate-100 bg-slate-50/70 p-3">
       <label className="block">
-        <span className="field-label !mb-1 flex items-center gap-2">
-          Heading on your CV
+        <span className="field-label !mb-1 flex flex-wrap items-center gap-2">
+          {t("builder.headingLabel")}
           <span className="font-normal normal-case text-slate-400">
-            — optional, rename it to suit the role
+            {t("builder.headingHint")}
           </span>
         </span>
         <input
@@ -40,7 +43,7 @@ export default function SectionTitleField({ sectionKey, value, onChange }) {
         </datalist>
       )}
       <p className="mt-1.5 text-xs text-slate-400">
-        Leave blank to use “{fallback}”.
+        {t("builder.headingBlank", { fallback })}
       </p>
     </div>
   );

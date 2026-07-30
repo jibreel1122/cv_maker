@@ -1,10 +1,11 @@
+import { pageTitle } from "@/lib/brand";
 import { Suspense } from "react";
 import SiteHeader from "@/components/SiteHeader";
 import Footer from "@/components/Footer";
 import BuildWizard from "@/components/build/BuildWizard";
 
 export const metadata = {
-  title: "Build your CV | CV Maker",
+  title: pageTitle("Build your CV"),
 };
 
 export default function BuildPage() {

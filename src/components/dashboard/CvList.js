@@ -11,15 +11,27 @@ import {
   Loader2,
 } from "lucide-react";
 import { templateName } from "@/lib/cvTemplateMeta";
+import { useLocale } from "@/components/i18n/LocaleProvider";
 
 export default function CvList() {
+  const { t, locale } = useLocale();
   const [cvs, setCvs] = useState(null);
+  const [loadError, setLoadError] = useState("");
   const [busyId, setBusyId] = useState(null);
 
   async function load() {
-    const res = await fetch("/api/cv");
-    const json = await res.json();
-    setCvs(json.cvs || []);
+    try {
+      const res = await fetch("/api/cv");
+      if (!res.ok) throw new Error();
+      const json = await res.json();
+      setCvs(json.cvs || []);
+      setLoadError("");
+    } catch {
+      // Without this an auth failure rendered the cheerful "no CVs yet" empty
+      // state, telling users their work was gone when it was merely unfetched.
+      setCvs([]);
+      setLoadError(t("dashboard.loadFailed"));
+    }
   }
 
   useEffect(() => {
@@ -27,7 +39,7 @@ export default function CvList() {
   }, []);
 
   async function handleDelete(id) {
-    if (!confirm("Delete this CV? This cannot be undone.")) return;
+    if (!confirm(t("dashboard.confirmDelete"))) return;
     setBusyId(id);
     await fetch(`/api/cv/${id}`, { method: "DELETE" });
     setBusyId(null);
@@ -45,23 +57,29 @@ export default function CvList() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="font-display text-xl font-bold text-ink">Your CVs</h2>
+        <h2 className="font-display text-xl font-bold text-ink">{t("dashboard.yourCvs")}</h2>
         <Link href="/build" className="btn-primary !py-2.5 text-sm">
-          <Plus className="h-4 w-4" /> New CV
+          <Plus className="h-4 w-4" /> {t("dashboard.newCv")}
         </Link>
       </div>
 
-      {cvs.length === 0 ? (
+      {loadError && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+          {loadError}
+        </div>
+      )}
+
+      {cvs.length === 0 && !loadError ? (
         <div className="card flex flex-col items-center py-16 text-center">
           <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
             <FileText className="h-7 w-7" />
           </span>
-          <h3 className="mt-4 font-display text-lg font-bold text-ink">No CVs yet</h3>
+          <h3 className="mt-4 font-display text-lg font-bold text-ink">{t("dashboard.noneTitle")}</h3>
           <p className="mt-1 max-w-sm text-sm text-slate-500">
-            Create your first professional CV — it only takes a few minutes.
+            {t("dashboard.noneBody")}
           </p>
           <Link href="/build" className="btn-primary mt-6 text-sm">
-            <Plus className="h-4 w-4" /> Create your first CV
+            <Plus className="h-4 w-4" /> {t("dashboard.createFirst")}
           </Link>
         </div>
       ) : (
@@ -81,14 +99,16 @@ export default function CvList() {
                 </span>
               </div>
               <h3 className="mt-4 truncate font-display text-lg font-bold text-ink">
-                {cv.fullName || cv.title || "Untitled CV"}
+                {cv.fullName || cv.title || t("dashboard.untitled")}
               </h3>
               <p className="truncate text-sm text-slate-500">{cv.jobTitle || "—"}</p>
               <p className="mt-1 text-xs text-slate-400">
-                Updated {new Date(cv.updatedAt).toLocaleDateString("en-GB", {
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric",
+                {t("dashboard.updated", {
+                  date: new Date(cv.updatedAt).toLocaleDateString(locale, {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  }),
                 })}
               </p>
 
@@ -97,19 +117,19 @@ export default function CvList() {
                   href={`/build?id=${cv.id}`}
                   className="btn-ghost flex-1 justify-center text-sm"
                 >
-                  <Pencil className="h-4 w-4" /> Edit
+                  <Pencil className="h-4 w-4" /> {t("dashboard.edit")}
                 </Link>
                 <a
                   href={`/api/cv/${cv.id}/pdf`}
                   className="btn-ghost flex-1 justify-center text-sm text-brand-700"
                 >
-                  <Download className="h-4 w-4" /> PDF
+                  <Download className="h-4 w-4" /> {t("dashboard.pdf")}
                 </a>
                 <button
                   onClick={() => handleDelete(cv.id)}
                   disabled={busyId === cv.id}
                   className="btn-ghost justify-center text-sm text-slate-400 hover:!text-red-600"
-                  aria-label="Delete CV"
+                  aria-label={t("dashboard.deleteCv")}
                 >
                   {busyId === cv.id ? (
                     <Loader2 className="h-4 w-4 animate-spin" />

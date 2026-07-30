@@ -108,7 +108,7 @@ export default function HeroPreview() {
         <span className="h-3 w-3 rounded-full bg-[#ff5f56]" />
         <span className="h-3 w-3 rounded-full bg-[#ffbd2e]" />
         <span className="h-3 w-3 rounded-full bg-[#27c93f]" />
-        <span className="ml-auto text-xs text-slate-400">Live preview</span>
+        <span className="ms-auto text-xs text-slate-400">Live preview</span>
       </div>
       <CVPreview cvData={data} templateId="modern-professional" />
     </div>

@@ -4,8 +4,10 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { Loader2, Mail, Lock, User, CheckCircle2, Copy, ExternalLink } from "lucide-react";
 import AuthShell from "@/components/auth/AuthShell";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 function RegisterInner() {
+  const t = useT();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -53,18 +55,17 @@ function RegisterInner() {
     // account is usable right now, so say so plainly.
     if (done.verified) {
       return (
-        <AuthShell title="You're all set">
+        <AuthShell title={t("auth.allSet")}>
           <div className="flex flex-col items-center py-2 text-center">
             <CheckCircle2 className="h-12 w-12 text-brand-600" />
             <h2 className="mt-4 font-display text-lg font-bold text-ink">
-              Account created! You can log in immediately.
+              {t("auth.accountReadyTitle")}
             </h2>
             <p className="mt-1 text-slate-600">
-              Your account <strong>{email}</strong> is ready to use — no email
-              verification needed.
+              {t("auth.accountReadyBody", { email })}
             </p>
             <Link href="/login" className="btn-primary mt-6 w-full text-sm">
-              Sign in
+              {t("common.signIn")}
             </Link>
           </div>
         </AuthShell>
@@ -72,18 +73,18 @@ function RegisterInner() {
     }
 
     return (
-      <AuthShell title="Verify your email">
+      <AuthShell title={t("auth.verifyTitle")}>
         <div className="flex flex-col items-center py-2 text-center">
           <CheckCircle2 className="h-12 w-12 text-brand-600" />
-          <h2 className="mt-4 font-display text-lg font-bold text-ink">Account created!</h2>
+          <h2 className="mt-4 font-display text-lg font-bold text-ink">{t("auth.accountCreated")}</h2>
           <p className="mt-1 text-slate-600">
-            One last step — verify <strong>{email}</strong> to activate your account.
+            {t("auth.verifyBody", { email })}
           </p>
 
           {verifyUrl ? (
-            <div className="mt-6 w-full text-left">
+            <div className="mt-6 w-full text-start">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Your verification link
+                {t("auth.yourVerifyLink")}
               </p>
               <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2">
                 <code className="flex-1 truncate px-1 text-xs text-slate-600">{verifyUrl}</code>
@@ -96,38 +97,34 @@ function RegisterInner() {
                   <Copy className="h-4 w-4" />
                 </button>
               </div>
-              {copied && <p className="mt-1 text-xs text-brand-600">Copied to clipboard.</p>}
+              {copied && <p className="mt-1 text-xs text-brand-600">{t("auth.copied")}</p>}
 
               <a href={verifyUrl} className="btn-primary mt-4 w-full text-sm">
-                <ExternalLink className="h-4 w-4" /> Verify my email now
+                <ExternalLink className="h-4 w-4" /> {t("auth.verifyNow")}
               </a>
               <p className="mt-3 text-xs text-slate-400">
-                Shown because this is a development build. In production the link
-                is only sent by email.
+                {t("auth.devLinkNote")}
               </p>
             </div>
           ) : done.delivered ? (
             <>
-              <div className="mt-5 flex items-start gap-2.5 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-left text-sm text-brand-800">
+              <div className="mt-5 flex items-start gap-2.5 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-start text-sm text-brand-800">
                 <Mail className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>
-                  We&apos;ve emailed you a verification link. It expires in 24
-                  hours — check your spam folder if it doesn&apos;t arrive.
+                  {t("auth.verifySent")}
                 </span>
               </div>
               <Link href="/login" className="btn-outline mt-5 text-sm">
-                Go to login
+                {t("auth.goToLogin")}
               </Link>
             </>
           ) : (
             <>
-              <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left text-sm text-amber-800">
-                Your account was created, but we couldn&apos;t send the
-                verification email just now. Please try again shortly, or contact
-                support if it keeps happening.
+              <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-start text-sm text-amber-800">
+                {t("auth.verifyFailed")}
               </div>
               <Link href="/login" className="btn-outline mt-5 text-sm">
-                Go to login
+                {t("auth.goToLogin")}
               </Link>
             </>
           )}
@@ -138,63 +135,63 @@ function RegisterInner() {
 
   return (
     <AuthShell
-      title="Create your account"
-      subtitle="It's free — build and download CVs in minutes."
+      title={t("auth.createAccount")}
+      subtitle={t("auth.registerSubtitle")}
       footer={
         <>
-          Already have an account?{" "}
+          {t("auth.haveAccount")}{" "}
           <Link href="/login" className="font-semibold text-brand-700 hover:underline">
-            Sign in
+            {t("common.signIn")}
           </Link>
         </>
       }
     >
       <form onSubmit={handleSubmit} className="grid gap-4">
         <label className="block">
-          <span className="field-label">Full name</span>
+          <span className="field-label">{t("common.fullName")}</span>
           <div className="relative">
-            <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <User className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               required
               autoComplete="name"
-              className="field-input pl-10"
+              className="field-input ps-10"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Your name"
+              placeholder={t("auth.namePlaceholder")}
             />
           </div>
         </label>
 
         <label className="block">
-          <span className="field-label">Email</span>
+          <span className="field-label">{t("common.email")}</span>
           <div className="relative">
-            <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Mail className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="email"
               required
               autoComplete="email"
-              className="field-input pl-10"
+              className="field-input ps-10"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@email.com"
+              placeholder={t("auth.emailPlaceholder")}
             />
           </div>
         </label>
 
         <label className="block">
-          <span className="field-label">Password</span>
+          <span className="field-label">{t("common.password")}</span>
           <div className="relative">
-            <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Lock className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="password"
               required
               minLength={8}
               autoComplete="new-password"
-              className="field-input pl-10"
+              className="field-input ps-10"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="At least 8 characters"
+              placeholder={t("auth.passwordMin")}
             />
           </div>
         </label>
@@ -207,13 +204,13 @@ function RegisterInner() {
             onChange={(e) => setAgreed(e.target.checked)}
           />
           <span>
-            I agree to the{" "}
+            {t("auth.agreeTo")}{" "}
             <Link href="/terms" target="_blank" className="font-semibold text-brand-700 hover:underline">
-              Terms of Service
+              {t("footer.terms")}
             </Link>{" "}
-            and{" "}
+            {t("auth.and")}{" "}
             <Link href="/privacy" target="_blank" className="font-semibold text-brand-700 hover:underline">
-              Privacy Policy
+              {t("footer.privacy")}
             </Link>
             .
           </span>
@@ -227,7 +224,7 @@ function RegisterInner() {
 
         <button type="submit" disabled={loading || !agreed} className="btn-primary w-full">
           {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
-          Sign up
+          {t("auth.signUp")}
         </button>
       </form>
     </AuthShell>

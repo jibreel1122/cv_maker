@@ -10,8 +10,12 @@
 //     unaffected. The body itself must never be multi-column.)
 //   - Standard fonts only: Arial, Calibri, Helvetica, Georgia, Garamond.
 //     No decorative, handwritten, or web-loaded fonts.
-//   - Typographic hierarchy: Name 20–24pt · Section titles 12–14pt bold
-//     UPPERCASE · Body 10–11pt.
+//   - Typographic hierarchy at the Standard density: Name 20–24pt · Section
+//     titles 12–14pt bold UPPERCASE · Body 10–11pt. The density control scales
+//     the whole document by ±10%, so Compact can take body text to ~9pt and
+//     Spacious to ~12pt. That is the user's deliberate choice for fitting a page
+//     and stays inside the 9–12pt range recruiters accept; the default sits in
+//     the ideal band.
 //   - Page margins between 0.5in and 1in on all sides (see PAGE_MARGIN_IN).
 //   - Neutral text colours with at most one restrained accent.
 //   - No icons, no profile photo, no complex tables, no graphics.
@@ -23,7 +27,14 @@
 // page margin.
 // ============================================================================
 
-import { DEFAULT_SECTION_TITLES } from "@/lib/cvSections";
+import {
+  defaultSectionTitle,
+  cvLanguage,
+  isRtlCv,
+  densityScale,
+  customLayout,
+  PRESENT_LABEL,
+} from "@/lib/cvSections";
 import {
   TEMPLATES,
   PAGE_MARGIN_IN,
@@ -32,6 +43,8 @@ import {
   resolveTemplateId,
   getTemplate,
   templateName,
+  NON_LATIN_STACK,
+  RTL_LINE_HEIGHT_BONUS,
 } from "@/lib/cvTemplateMeta";
 
 // Template metadata lives in `cvTemplateMeta.js` so that consumers which only
@@ -50,7 +63,6 @@ export {
 // rendering for print — Puppeteer applies PRINT_MARGIN_IN itself.
 const PRINT_PADDING_IN = PAGE_MARGIN_IN - PRINT_MARGIN_IN;
 
-const PRESENT_LABEL = "Present";
 
 // --- Safe rendering primitives ----------------------------------------------
 
@@ -85,9 +97,9 @@ function arr(value) {
   return Array.isArray(value) ? value : [];
 }
 
-function fmtRange(start, end, current) {
+function fmtRange(start, end, current, language) {
   const from = esc(s(start));
-  const to = current ? PRESENT_LABEL : esc(s(end));
+  const to = current ? esc(PRESENT_LABEL[cvLanguage(language)]) : esc(s(end));
   if (!from && !to) return "";
   if (!from) return to;
   if (!to) return from;
@@ -95,10 +107,14 @@ function fmtRange(start, end, current) {
 }
 
 // Resolves a section heading: the user's override if they set one, else the
-// standard label.
+// standard label in the CV's own language.
 function heading(cvData, key) {
   const custom = s(cvData?.sectionTitles?.[key]);
-  return custom || DEFAULT_SECTION_TITLES[key] || "";
+  return custom || defaultSectionTitle(key, cvData?.settings?.language) || "";
+}
+
+function lang(cvData) {
+  return cvLanguage(cvData?.settings?.language);
 }
 
 // `inner` is trusted HTML assembled by the renderers below; `title` is user text.
@@ -140,22 +156,42 @@ function entry({ title, date, subtitleParts, detail, bullets }) {
 // page box is not forced to full A4 — giving byte-identical text geometry in
 // both modes.
 
-function buildStyles(tpl, mode) {
+// Multiplies every pt/px length in generated CSS by `factor`, leaving mm alone
+// so the A4 page box never changes. This is what the density control drives: one
+// dial that shrinks or expands the entire document, letting a non-technical user
+// fit their content onto the pages they want without touching individual sizes.
+//
+// Safe as a regex because the CSS being scaled is generated in this file — it is
+// never user input.
+function scaleLengths(css, factor) {
+  if (factor === 1) return css;
+  return css.replace(/(\d*\.?\d+)(pt|px)\b/g, (whole, value, unit) => {
+    const scaled = Number.parseFloat(value) * factor;
+    // Two decimals is well below a printer dot; more just bloats the stylesheet.
+    return `${Math.round(scaled * 100) / 100}${unit}`;
+  });
+}
+
+function buildStyles(tpl, mode, { rtl = false, density = 1, fontFaceCss = "" } = {}) {
   const isPrint = mode === "print";
   const pagePadding = isPrint ? `${PRINT_PADDING_IN}in` : `${PAGE_MARGIN_IN}in`;
   const pageBox = isPrint
     ? "width:100%;"
     : "width:210mm;min-height:297mm;margin:0 auto;";
 
+  // Arabic is set in Cairo regardless of the template's Latin face — the Latin
+  // stacks (Garamond, Calibri…) have no Arabic coverage at all.
+  const fontFamily = rtl ? NON_LATIN_STACK : tpl.font;
+
   const base = `
     *{box-sizing:border-box;margin:0;padding:0;}
     html,body{background:#ffffff;}
     body{
-      font-family:${tpl.font};
+      font-family:${fontFamily};
       color:#1a1a1a;
-      direction:ltr;
-      text-align:left;
-      line-height:1.45;
+      direction:${rtl ? "rtl" : "ltr"};
+      text-align:${rtl ? "right" : "left"};
+      line-height:${rtl ? 1.45 + RTL_LINE_HEIGHT_BONUS : 1.45};
       -webkit-print-color-adjust:exact;
       print-color-adjust:exact;
     }
@@ -183,8 +219,10 @@ function buildStyles(tpl, mode) {
     .item-detail{color:#3a3a3a;margin-top:2px;}
 
     .bullets{margin-top:3px;}
-    .bullets li{position:relative;padding-left:13px;margin-top:2px;}
-    .bullets li::before{content:"•";position:absolute;left:0;color:${tpl.accent};}
+    .bullets li{position:relative;padding-inline-start:13px;margin-top:2px;}
+    .bullets li::before{
+      content:"•";position:absolute;inset-inline-start:0;color:${tpl.accent};
+    }
 
     .contact{color:#333;font-size:10pt;}
     .contact span{white-space:nowrap;}
@@ -192,12 +230,15 @@ function buildStyles(tpl, mode) {
 
     .inline-list{display:flex;flex-wrap:wrap;gap:4px 9px;margin-top:5px;}
     .inline-list li{font-size:10pt;}
-    .inline-list li::after{content:"•";margin-left:9px;color:#bbb;}
+    .inline-list li::after{content:"•";margin-inline-start:9px;color:#bbb;}
     .inline-list li:last-child::after{content:"";}
 
     /* Keep entries from being split across a page break. */
     .item{break-inside:avoid;page-break-inside:avoid;}
     .section-title{break-after:avoid;page-break-after:avoid;}
+
+    /* Free-text sections: preserve the user's own line breaks. */
+    .free-text{white-space:pre-wrap;}
 
     @page{size:A4;}
   `;
@@ -268,7 +309,13 @@ function buildStyles(tpl, mode) {
     `,
   };
 
-  return base + (variants[tpl.id] || variants["classic-corporate"]);
+  const scaled = scaleLengths(
+    base + (variants[tpl.id] || variants["classic-corporate"]),
+    density
+  );
+  // @font-face rules are appended unscaled — they carry no lengths, and the
+  // base64 payload must not be touched by the regex.
+  return fontFaceCss + scaled;
 }
 
 // --- Section renderers -------------------------------------------------------
@@ -320,7 +367,7 @@ function renderExperience(data) {
     .map((e) =>
       entry({
         title: e?.jobTitle,
-        date: fmtRange(e?.startDate, e?.endDate, e?.current),
+        date: fmtRange(e?.startDate, e?.endDate, e?.current, lang(data)),
         subtitleParts: [e?.company, e?.location],
         bullets: e?.bullets,
       })
@@ -334,7 +381,7 @@ function renderEducation(data) {
     .map((e) =>
       entry({
         title: e?.degree,
-        date: fmtRange(e?.startDate, e?.endDate, false),
+        date: fmtRange(e?.startDate, e?.endDate, false, lang(data)),
         subtitleParts: [e?.institution, e?.location],
         detail: e?.details,
       })
@@ -381,6 +428,13 @@ function renderCustomSections(data) {
     .map((sec) => {
       const title = s(sec?.title);
       if (!title) return "";
+
+      // Free text is one block of prose the user typed, newlines and all.
+      if (customLayout(sec?.layout) === "freeText") {
+        const body = s(sec?.text);
+        return body ? section(title, `<p class="free-text">${esc(body)}</p>`) : "";
+      }
+
       const inner = arr(sec?.items)
         .map((it) =>
           entry({
@@ -412,7 +466,11 @@ const RENDERERS = {
 //   mode: "preview" (default) — full A4 page box, full margin in CSS.
 //         "print"             — assumes Puppeteer applies PRINT_MARGIN_IN.
 // Never throws: malformed data degrades field-by-field to empty output.
-export function buildCvHtml(cvData, templateId, { mode = "preview" } = {}) {
+export function buildCvHtml(
+  cvData,
+  templateId,
+  { mode = "preview", fontFaceCss = "" } = {}
+) {
   const tpl = getTemplate(templateId);
   // No schema pass here on purpose. Writes are validated at the API boundary,
   // and every helper below (`s`, `arr`, `esc`, `bulletList`) is total — it
@@ -421,15 +479,23 @@ export function buildCvHtml(cvData, templateId, { mode = "preview" } = {}) {
   // that ships this module to the preview.
   const data = cvData && typeof cvData === "object" ? cvData : {};
 
+  const language = lang(data);
+  const rtl = isRtlCv(language);
+  const styles = buildStyles(tpl, mode, {
+    rtl,
+    density: densityScale(data?.settings?.density),
+    fontFaceCss,
+  });
+
   const body = tpl.order.map((key) => RENDERERS[key]?.(data) || "").join("");
 
   return `<!DOCTYPE html>
-<html lang="en" dir="ltr">
+<html lang="${language}" dir="${rtl ? "rtl" : "ltr"}">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>${esc(s(data.personal?.fullName)) || "CV"}</title>
-<style>${buildStyles(tpl, mode)}</style>
+<style>${styles}</style>
 </head>
 <body>
   <div class="page">

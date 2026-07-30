@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, CheckCircle2, AlertTriangle, Mail } from "lucide-react";
 import AuthShell from "@/components/auth/AuthShell";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 function VerifyInner() {
+  const t = useT();
   const router = useRouter();
   const params = useSearchParams();
   const token = params.get("token");
@@ -85,21 +87,21 @@ function VerifyInner() {
   }
 
   return (
-    <AuthShell title="Email verification">
+    <AuthShell title={t("auth.verification")}>
       {state === "loading" && (
         <div className="flex flex-col items-center py-6 text-center">
           <Loader2 className="h-10 w-10 animate-spin text-brand-600" />
-          <p className="mt-4 text-slate-600">Verifying your email…</p>
+          <p className="mt-4 text-slate-600">{t("auth.verifying")}</p>
         </div>
       )}
 
       {state === "verified" && (
         <div className="flex flex-col items-center py-6 text-center">
           <CheckCircle2 className="h-12 w-12 text-brand-600" />
-          <h2 className="mt-4 font-display text-lg font-bold text-ink">Email verified!</h2>
-          <p className="mt-1 text-slate-600">Redirecting to login…</p>
+          <h2 className="mt-4 font-display text-lg font-bold text-ink">{t("auth.verified")}</h2>
+          <p className="mt-1 text-slate-600">{t("auth.redirecting")}</p>
           <Link href="/login" className="btn-primary mt-6 text-sm">
-            Go to login now
+            {t("auth.goToLoginNow")}
           </Link>
         </div>
       )}
@@ -107,33 +109,33 @@ function VerifyInner() {
       {state === "expired" && (
         <div className="flex flex-col items-center py-6 text-center">
           <AlertTriangle className="h-12 w-12 text-amber-500" />
-          <h2 className="mt-4 font-display text-lg font-bold text-ink">Token expired</h2>
+          <h2 className="mt-4 font-display text-lg font-bold text-ink">{t("auth.tokenExpired")}</h2>
           <p className="mt-1 text-slate-600">
-            This verification link is no longer valid. Request a new one below.
+            {t("auth.tokenExpiredBody")}
           </p>
           {resent ? (
             newLink ? (
-              <div className="mt-5 w-full text-left">
+              <div className="mt-5 w-full text-start">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Your new verification link
+                  {t("auth.newLink")}
                 </p>
                 <div className="mt-1.5 rounded-xl border border-slate-200 bg-slate-50 p-2">
                   <code className="block truncate px-1 text-xs text-slate-600">{newLink}</code>
                 </div>
                 <a href={newLink} className="btn-primary mt-3 w-full text-sm">
-                  <Mail className="h-4 w-4" /> Verify my email now
+                  <Mail className="h-4 w-4" /> {t("auth.verifyNow")}
                 </a>
               </div>
             ) : (
               <p className="mt-5 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-700">
-                <Mail className="mr-1 inline h-4 w-4" /> If that account still needs
+                <Mail className="me-1 inline h-4 w-4" /> If that account still needs
                 verification, a new link has been generated (check the server console).
               </p>
             )
           ) : (
             <button onClick={handleResend} disabled={resending} className="btn-primary mt-6 text-sm">
               {resending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-              Resend verification email
+              {t("auth.resend")}
             </button>
           )}
         </div>
@@ -142,12 +144,12 @@ function VerifyInner() {
       {state === "invalid" && (
         <div className="flex flex-col items-center py-6 text-center">
           <AlertTriangle className="h-12 w-12 text-red-500" />
-          <h2 className="mt-4 font-display text-lg font-bold text-ink">Invalid link</h2>
+          <h2 className="mt-4 font-display text-lg font-bold text-ink">{t("auth.invalidLink")}</h2>
           <p className="mt-1 text-slate-600">
-            This verification link is not valid. Try registering again or signing in.
+            {t("auth.invalidLinkBody")}
           </p>
           <Link href="/login" className="btn-outline mt-6 text-sm">
-            Back to login
+            {t("auth.backToLogin")}
           </Link>
         </div>
       )}

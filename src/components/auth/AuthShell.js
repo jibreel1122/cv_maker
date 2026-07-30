@@ -2,19 +2,29 @@
 
 import Link from "next/link";
 import { FileText } from "lucide-react";
+import { useT } from "@/components/i18n/LocaleProvider";
+import LanguageSwitcher from "@/components/i18n/LanguageSwitcher";
+import { BRAND_NAME } from "@/lib/brand";
 
 export default function AuthShell({ title, subtitle, children, footer }) {
+  const t = useT();
   return (
     <main className="flex min-h-screen items-center justify-center bg-canvas px-6 py-10">
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute -top-32 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-brand-200/40 blur-3xl" />
       </div>
       <div className="w-full max-w-md">
+        {/* Signed-out visitors need the switcher too — the whole point is that
+            someone who cannot read the current language can still change it. */}
+        <div className="mb-4 flex justify-center">
+          <LanguageSwitcher />
+        </div>
+
         <Link href="/" className="mb-6 flex items-center justify-center gap-2">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white shadow-soft">
             <FileText className="h-5 w-5" />
           </span>
-          <span className="font-display text-2xl font-extrabold text-ink">CV Maker</span>
+          <span className="font-display text-2xl font-extrabold text-ink">{BRAND_NAME}</span>
         </Link>
 
         <div className="card">
@@ -27,11 +37,11 @@ export default function AuthShell({ title, subtitle, children, footer }) {
 
         <div className="mt-6 flex items-center justify-center gap-4 text-xs text-slate-400">
           <Link href="/privacy" className="hover:text-brand-700">
-            Privacy Policy
+            {t("footer.privacy")}
           </Link>
           <span className="h-3 w-px bg-slate-200" />
           <Link href="/terms" className="hover:text-brand-700">
-            Terms of Service
+            {t("footer.terms")}
           </Link>
         </div>
       </div>

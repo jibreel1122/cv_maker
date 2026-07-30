@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
+import { purgeExpiredAuditLogs } from "@/lib/audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,7 +23,7 @@ export async function GET(request) {
 
   const where = {};
   if (action) where.action = action;
-  if (q) where.metadata = { contains: q }; // email/IP live inside the JSON string
+  if (q) where.metadata = { contains: q, mode: "insensitive" }; // email/IP live inside the JSON string
   if (from || to) {
     where.createdAt = {};
     if (from) where.createdAt.gte = new Date(from);
@@ -33,6 +34,10 @@ export async function GET(request) {
       where.createdAt.lte = end;
     }
   }
+
+  // Enforce the 90-day retention the privacy policy promises. Opportunistic and
+  // throttled internally, so viewing the log is what keeps it trimmed.
+  purgeExpiredAuditLogs();
 
   const [total, logs] = await Promise.all([
     prisma.auditLog.count({ where }),

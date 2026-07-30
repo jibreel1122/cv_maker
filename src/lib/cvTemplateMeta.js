@@ -26,6 +26,16 @@ const CALIBRI = "Calibri, 'Segoe UI', Helvetica, Arial, sans-serif";
 const GEORGIA = "Georgia, 'Times New Roman', Times, serif";
 const GARAMOND = "Garamond, 'EB Garamond', Georgia, 'Times New Roman', serif";
 
+// Arabic stack. Cairo is vendored in /public/fonts (see src/lib/cvFonts.js) —
+// the render container has no Arabic system font, so without it an Arabic CV
+// comes out as tofu boxes. The fallbacks cover machines that do have one.
+export const NON_LATIN_STACK =
+  "'Cairo', 'Noto Naskh Arabic', 'Segoe UI', Tahoma, Arial, sans-serif";
+
+// Arabic typography needs a touch more leading than Latin: the script has taller
+// ascenders and deeper descenders, so lines set at Latin spacing look cramped.
+export const RTL_LINE_HEIGHT_BONUS = 0.15;
+
 // --- Templates ---------------------------------------------------------------
 // Five ATS-proven layouts. `order` controls section sequence, so a technical CV
 // leads with skills while an academic one leads with education — which is what
