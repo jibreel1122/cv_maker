@@ -10,8 +10,13 @@ function VerifyInner() {
   const router = useRouter();
   const params = useSearchParams();
   const token = params.get("token");
+  // Links opened from an email hit /api/auth/verify-email first, which applies
+  // the token and redirects here with the outcome already decided.
+  const reportedStatus = params.get("status");
 
-  const [state, setState] = useState("loading"); // loading | verified | expired | invalid
+  const [state, setState] = useState(() =>
+    ["verified", "expired", "invalid"].includes(reportedStatus) ? reportedStatus : "loading"
+  );
   const [resending, setResending] = useState(false);
   const [resent, setResent] = useState(false);
   const [newLink, setNewLink] = useState("");
@@ -21,6 +26,15 @@ function VerifyInner() {
     if (ran.current) return;
     ran.current = true;
 
+    // Already resolved by the API route — nothing left to do but show it.
+    if (["verified", "expired", "invalid"].includes(reportedStatus)) {
+      if (reportedStatus === "verified") {
+        setTimeout(() => router.replace("/login"), 2200);
+      }
+      return;
+    }
+
+    // Fallback for links issued before the emailed GET route existed.
     if (!token) {
       setState("invalid");
       return;
@@ -45,7 +59,7 @@ function VerifyInner() {
         setState("invalid");
       }
     })();
-  }, [token, router]);
+  }, [token, reportedStatus, router]);
 
   async function handleResend() {
     setResending(true);

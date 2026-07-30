@@ -13,6 +13,8 @@ user management, role assignment, and visibility into every CV.
 ## Features
 
 - **Authentication** — email/password only (NextAuth). No external OAuth.
+- **Email verification** — optional, via Resend. Off by default so local and
+  unconfigured deployments work; enable it by setting `RESEND_API_KEY`.
 - **Roles** — `USER`, `ADMIN`, `OWNER`. The owner/admin can promote or demote
   users from the dashboard.
 - **CV builder** — multi-step form with a live, pixel-accurate preview and
@@ -106,12 +108,40 @@ openssl rand -base64 32      # paste into NEXTAUTH_SECRET in .env
 All seeded accounts are pre-verified. Sign in at `/login`; the owner/admin can
 open `/admin`. The owner can grant the `ADMIN` or `OWNER` role to any user.
 
-### Email verification (local mock)
+### Email verification (Resend)
 
-There is **no email server**. When a new user registers, the verification link
-is **shown directly on screen** (and printed to the server console) — click it
-to verify the account immediately. The backend still validates the signed,
-24-hour token and sets `emailVerified` before the account can log in.
+Verification email is sent through [Resend](https://resend.com) and is **opt-in**:
+it only runs when `RESEND_API_KEY` is set.
+
+| `RESEND_API_KEY` | Behaviour |
+| ---------------- | --------- |
+| **not set** (default) | Verification is off. New accounts are created already verified and can sign in immediately. |
+| **set** | A verification email is sent. The account cannot sign in until the link is opened. |
+
+Set `ENABLE_EMAIL_VERIFICATION="false"` to force it off even when a key exists.
+
+This coupling is deliberate: requiring a verified address while no mail can be
+sent would lock every new account out permanently, so the two switch together.
+
+**To enable it:**
+
+1. Create a free account at [resend.com](https://resend.com) and generate an API key.
+2. Add to `.env`:
+   ```
+   RESEND_API_KEY="re_xxxxxxxxxxxx"
+   EMAIL_FROM="CV Maker <onboarding@resend.dev>"
+   NEXTAUTH_URL="https://your-domain.com"
+   ```
+3. `EMAIL_FROM` must be on a domain verified in Resend. The shared
+   `onboarding@resend.dev` sender works without one, but **only delivers to the
+   email address that owns the Resend account** — fine for testing, not for real
+   users.
+
+The emailed link points at `/api/auth/verify-email?token=...`, which validates
+the signed 24-hour token, sets `emailVerified`, and redirects to a confirmation
+page. Expired links offer a resend. In development the link is also returned to
+the sign-up screen so you can click it without an inbox; it is never exposed in
+production.
 
 | Role  | Can do                                                            |
 | ----- | ---------------------------------------------------------------- |
@@ -157,7 +187,7 @@ src/
     auth.js            # NextAuth config + role helpers
     session.js         # server-side session/role guards
     tokens.js          # signed email-verification tokens
-    mailer.js          # local mock — builds & logs the verification link (no email sent)
+    mailer.js          # Resend transport + the verification on/off switch
     rateLimit.js       # in-memory rate limiter
     audit.js           # audit logging
     security.js        # same-origin (CSRF) check
@@ -210,6 +240,8 @@ src/
    shared browser per process and caps concurrent renders (see `pdf.js`), so a
    long-lived Node host benefits most.
 3. **Environment** — set `NEXTAUTH_URL` to the production URL and a strong
-   `NEXTAUTH_SECRET` (`openssl rand -base64 32`). In production the on-screen
-   verification link is **not** returned by the API, so wire up a real email
-   transport in `src/lib/mailer.js` if you deploy publicly.
+   `NEXTAUTH_SECRET` (`openssl rand -base64 32`).
+4. **Email** — set `RESEND_API_KEY` and `EMAIL_FROM` to require verified
+   addresses. Leave `RESEND_API_KEY` unset to skip verification entirely; either
+   is a working configuration, but a verified-address requirement with no mail
+   transport is not, which is why the two are tied together.

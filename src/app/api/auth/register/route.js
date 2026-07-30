@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { sameOrigin } from "@/lib/security";
 import { hit, clientIp } from "@/lib/rateLimit";
 import { createEmailToken } from "@/lib/tokens";
-import { sendVerificationEmail } from "@/lib/mailer";
+import { sendVerificationEmail, isEmailVerificationEnabled } from "@/lib/mailer";
 
 export const runtime = "nodejs";
 
@@ -62,19 +62,45 @@ export async function POST(request) {
 
   // Salt rounds = 12 (>= 12 required).
   const passwordHash = await bcrypt.hash(password, 12);
+
+  // With no mail transport configured there is no way for a user to ever
+  // confirm their address, so requiring it would lock every new account out
+  // permanently. In that case the account is created ready to use.
+  const verificationRequired = isEmailVerificationEnabled();
+
   await prisma.user.create({
-    data: { name, email, passwordHash, role: "USER", emailVerified: null },
+    data: {
+      name,
+      email,
+      passwordHash,
+      role: "USER",
+      emailVerified: verificationRequired ? null : new Date(),
+    },
   });
 
-  const token = createEmailToken(email);
-  const { link } = await sendVerificationEmail(email, token);
+  if (!verificationRequired) {
+    return NextResponse.json({ ok: true, email, verified: true });
+  }
 
-  // Local build: no email is sent, so we hand the verification link back to the
-  // UI to display on screen. (Outside development we would not expose this.)
+  const token = createEmailToken(email);
+  const { delivered, link, error } = await sendVerificationEmail({ email, token });
+
+  // A delivery failure must not undo a successful registration — the account
+  // exists and the user can request a fresh link from the verification page.
+  if (!delivered) {
+    console.error(`[register] verification email to ${email} failed:`, error);
+  }
+
+  // In development there is often no inbox to check, so the link is handed back
+  // for the UI to show. Never in production: that would let someone register
+  // with an address they do not control and verify it themselves.
   const exposeLink = process.env.NODE_ENV !== "production";
+
   return NextResponse.json({
     ok: true,
     email,
+    verified: false,
+    delivered,
     verifyUrl: exposeLink ? link : undefined,
   });
 }

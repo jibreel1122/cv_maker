@@ -24,9 +24,14 @@ resolved ones.
 | **M3** No autosave / unsaved-changes guard | ✅ Fixed | `localStorage` autosave, restore prompt, `beforeunload` guard |
 | **M5** Admin showed raw template ids | ✅ Fixed | Both tables now call `templateName()`; legacy ids map to live templates |
 | **L10** Preview iframe `allow-same-origin` | ✅ Fixed | `sandbox=""` — no permissions at all |
+| **C4** Production signup completely broken | ✅ Fixed | Resend transport in `src/lib/mailer.js`; verification is opt-in and auto-verifies accounts when no transport is configured, so signup works in every configuration |
 
-**Everything else in this document is still open**, including all four Critical
-findings (C1–C4) and H4. Those remain the priority.
+**C3 is partially unblocked:** the mail transport C4 needed now exists, so a
+password-reset flow only has to be written — it is no longer waiting on an
+infrastructure decision. The flow itself is still missing.
+
+**Everything else in this document is still open**, including C1, C2, C3 and
+H4. Those remain the priority.
 
 ---
 

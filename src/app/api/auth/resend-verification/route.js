@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { sameOrigin } from "@/lib/security";
 import { hit, clientIp } from "@/lib/rateLimit";
 import { verifyEmailToken, createEmailToken } from "@/lib/tokens";
-import { sendVerificationEmail } from "@/lib/mailer";
+import { sendVerificationEmail, isEmailVerificationEnabled } from "@/lib/mailer";
 
 export const runtime = "nodejs";
 
@@ -14,6 +14,12 @@ export const runtime = "nodejs";
 export async function POST(request) {
   if (!sameOrigin(request)) {
     return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
+  }
+
+  // Nothing to resend when verification is switched off — accounts created in
+  // that mode are already usable.
+  if (!isEmailVerificationEnabled()) {
+    return NextResponse.json({ ok: true, disabled: true });
   }
 
   const ip = clientIp(request.headers);
@@ -41,7 +47,7 @@ export async function POST(request) {
   let link;
   const user = await prisma.user.findUnique({ where: { email } });
   if (user && !user.emailVerified) {
-    ({ link } = await sendVerificationEmail(email, createEmailToken(email)));
+    ({ link } = await sendVerificationEmail({ email, token: createEmailToken(email) }));
   }
 
   // Always report success to avoid leaking whether an account exists/verified.

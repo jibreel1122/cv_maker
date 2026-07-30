@@ -12,9 +12,10 @@ function RegisterInner() {
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [done, setDone] = useState(false);
-  const [verifyUrl, setVerifyUrl] = useState("");
+  const [done, setDone] = useState(null); // the registration result payload
   const [copied, setCopied] = useState(false);
+
+  const verifyUrl = done?.verifyUrl || "";
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -29,8 +30,7 @@ function RegisterInner() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Could not create your account.");
-      setVerifyUrl(json.verifyUrl || "");
-      setDone(true);
+      setDone(json);
     } catch (e) {
       setError(e.message);
       setLoading(false);
@@ -48,6 +48,25 @@ function RegisterInner() {
   }
 
   if (done) {
+    // Verification is switched off (no mail transport configured), so the
+    // account is already usable.
+    if (done.verified) {
+      return (
+        <AuthShell title="You're all set">
+          <div className="flex flex-col items-center py-2 text-center">
+            <CheckCircle2 className="h-12 w-12 text-brand-600" />
+            <h2 className="mt-4 font-display text-lg font-bold text-ink">Account created!</h2>
+            <p className="mt-1 text-slate-600">
+              Your account <strong>{email}</strong> is ready to use.
+            </p>
+            <Link href="/login" className="btn-primary mt-6 w-full text-sm">
+              Sign in
+            </Link>
+          </div>
+        </AuthShell>
+      );
+    }
+
     return (
       <AuthShell title="Verify your email">
         <div className="flex flex-col items-center py-2 text-center">
@@ -79,14 +98,34 @@ function RegisterInner() {
                 <ExternalLink className="h-4 w-4" /> Verify my email now
               </a>
               <p className="mt-3 text-xs text-slate-400">
-                This is a local build — no email is sent. The link is also printed
-                in the server console.
+                Shown because this is a development build. In production the link
+                is only sent by email.
               </p>
             </div>
+          ) : done.delivered ? (
+            <>
+              <div className="mt-5 flex items-start gap-2.5 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-left text-sm text-brand-800">
+                <Mail className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  We&apos;ve emailed you a verification link. It expires in 24
+                  hours — check your spam folder if it doesn&apos;t arrive.
+                </span>
+              </div>
+              <Link href="/login" className="btn-outline mt-5 text-sm">
+                Go to login
+              </Link>
+            </>
           ) : (
-            <Link href="/login" className="btn-outline mt-6 text-sm">
-              Go to login
-            </Link>
+            <>
+              <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left text-sm text-amber-800">
+                Your account was created, but we couldn&apos;t send the
+                verification email just now. Please try again shortly, or contact
+                support if it keeps happening.
+              </div>
+              <Link href="/login" className="btn-outline mt-5 text-sm">
+                Go to login
+              </Link>
+            </>
           )}
         </div>
       </AuthShell>

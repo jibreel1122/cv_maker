@@ -13,6 +13,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { hit, peek, reset, clientIp } from "@/lib/rateLimit";
 import { logAudit } from "@/lib/audit";
+import { isEmailVerificationEnabled } from "@/lib/mailer";
 
 // Roles, ordered from least to most privileged.
 export const ROLES = ["USER", "ADMIN", "OWNER"];
@@ -24,7 +25,9 @@ const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 // Thrown error codes surfaced to the sign-in UI via `res.error`.
 export const AUTH_ERRORS = {
   RATE_LIMITED: "Too many attempts. Try again in 15 minutes.",
-  EMAIL_NOT_VERIFIED: "Please verify your email first using the verification link shown after you registered.",
+  // Only ever shown while verification is enabled, i.e. when an email was sent.
+  EMAIL_NOT_VERIFIED:
+    "Please verify your email first — check your inbox for the verification link we sent you.",
 };
 
 function buildProviders() {
@@ -62,8 +65,11 @@ function buildProviders() {
           return null;
         }
 
-        // Email/password accounts must verify their email before signing in.
-        if (!user.emailVerified) {
+        // Email/password accounts must verify their email before signing in —
+        // but only while verification is actually running. If it is switched
+        // off, accounts created back when it was on would otherwise stay locked
+        // out with no way to confirm their address.
+        if (isEmailVerificationEnabled() && !user.emailVerified) {
           await logAudit("LOGIN_FAILED", {
             userId: user.id,
             metadata: { email, ip, reason: "email_not_verified" },
