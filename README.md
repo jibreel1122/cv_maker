@@ -96,15 +96,45 @@ the route handlers only map a verdict onto an HTTP status.
 # 1) Install dependencies
 npm install
 
-# 2) Set up your database connection (see "Database (Supabase)" below)
-cp .env.example .env        # then edit .env with your Supabase URLs + a secret
+# 2) Create your .env
+cp .env.example .env
+```
 
-# 3) Create the tables and seed the owner/demo accounts
+Then edit `.env` and set, at minimum:
+
+| Variable | Value |
+| -------- | ----- |
+| `DATABASE_URL` / `DIRECT_URL` | your Postgres connection strings (Supabase, or a local server — see below) |
+| `NEXTAUTH_SECRET` | `openssl rand -base64 32` |
+| `OWNER_EMAIL` / `OWNER_PASSWORD` | the admin account to create. **Required** — the seed refuses to run with the placeholders still in place |
+
+```bash
+# 3) Create the tables and seed the owner account
 npm run db:setup
 
 # 4) Run
 npm run dev                 # http://localhost:3000
 ```
+
+### Running against a local Postgres instead of Supabase
+
+Any Postgres 14+ works. With Docker:
+
+```bash
+docker run -d --name bornat-db -p 5432:5432 \
+  -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=bornat_cv postgres:16
+```
+
+then in `.env`:
+
+```
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/bornat_cv"
+DIRECT_URL="postgresql://postgres:postgres@localhost:5432/bornat_cv"
+```
+
+Add `SEED_DEMO_USERS="true"` before seeding to also create
+`demo@bornatcv.local` and `admin@bornatcv.local` with sample CVs — handy for
+clicking around, and never created unless you ask for them.
 
 ## Database (Supabase)
 

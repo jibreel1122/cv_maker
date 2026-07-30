@@ -161,6 +161,20 @@ async function main() {
   if (ownerPassword.length < 12) {
     throw new Error("OWNER_PASSWORD must be at least 12 characters.");
   }
+  // The placeholders in .env.example are long enough to pass the length check,
+  // so reject them by name — otherwise `cp .env.example .env && npm run db:setup`
+  // quietly creates an owner account with a password published in this repo.
+  const PLACEHOLDERS = [
+    "generate_a_strong_password_min_12_chars",
+    "you@example.com",
+  ];
+  if (PLACEHOLDERS.includes(ownerPassword) || PLACEHOLDERS.includes(ownerEmail)) {
+    throw new Error(
+      "OWNER_EMAIL / OWNER_PASSWORD are still the .env.example placeholders.\n" +
+        "  Set real values first, e.g.\n" +
+        '    OWNER_PASSWORD="$(openssl rand -base64 18)"'
+    );
+  }
 
   const owner = await upsertUser({
     email: ownerEmail,
