@@ -36,3 +36,7 @@ yarn-error.log*
 
 # generated prisma client
 /src/generated
+
+# deploy/deploy.sh is tracked (reusable ops tooling); the source snapshot it
+# ships alongside is a build artifact regenerated per deploy, never committed.
+/deploy/*.tar.gz
