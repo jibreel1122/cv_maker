@@ -1,0 +1,176 @@
+name: Deploy to VPS
+
+# Runs `deploy/update.sh` on the production server over SSH.
+#
+# Why a workflow rather than deploying from a laptop: a GitHub runner has
+# unrestricted outbound network access, so this is a repeatable, logged deploy
+# that anyone with repo access — or an assistant working in a sandboxed
+# environment — can trigger without holding the server credentials themselves.
+#
+# ---------------------------------------------------------------------------
+# One-time setup — Settings → Secrets and variables → Actions → New secret
+# ---------------------------------------------------------------------------
+#   VPS_HOST         the server's IP or hostname          (e.g. 31.97.72.28)
+#   VPS_USER         the SSH user                         (e.g. root)
+#
+#   ...then ONE of these two, for authentication:
+#   VPS_SSH_KEY      a private SSH key authorised on the server   ← preferred
+#   VPS_PASSWORD     the SSH password                             ← fallback
+#
+#   Optional but recommended:
+#   VPS_SSH_HOST_KEY the server's public host key line, which pins the server's
+#                    identity so a run cannot be tricked into deploying — and
+#                    handing over the credentials — to an impostor. Get it with:
+#                      ssh-keyscan -t ed25519 <your-server-ip>
+#                    and paste the whole output line. Without it, the run
+#                    trusts whatever host answers on the first connection.
+#
+# Nothing above is ever written into the repository; GitHub masks secrets in the
+# logs. The deploy itself is `deploy/update.sh`, which backs up the current
+# release, rebuilds, restarts PM2 and health-checks — leaving .env, the database
+# and nginx untouched.
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to deploy"
+        required: true
+        default: main
+      run_checks:
+        description: "Run lint/test/build before deploying"
+        type: boolean
+        required: false
+        default: true
+
+# Never let two deploys touch the server at once.
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Lint, test and build
+    if: ${{ inputs.run_checks }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Placeholders: the build reads the datasource block and the token signer
+      # refuses its development key in a production build, but nothing here
+      # connects to a database or serves a request.
+      DATABASE_URL: postgresql://user:pass@localhost:5432/placeholder
+      DIRECT_URL: postgresql://user:pass@localhost:5432/placeholder
+      NEXTAUTH_SECRET: ci-placeholder-secret-not-used-at-runtime
+      NEXTAUTH_URL: http://localhost:3000
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  deploy:
+    name: Deploy
+    needs: [verify]
+    # `always()` plus an explicit failure check: the deploy still runs when the
+    # checks were skipped on purpose, but never after they actually failed.
+    if: ${{ always() && needs.verify.result != 'failure' && needs.verify.result != 'cancelled' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check the secrets are present
+        env:
+          HOST: ${{ secrets.VPS_HOST }}
+          USER: ${{ secrets.VPS_USER }}
+          KEY: ${{ secrets.VPS_SSH_KEY }}
+          PASSWORD: ${{ secrets.VPS_PASSWORD }}
+        run: |
+          missing=""
+          [ -n "$HOST" ] || missing="$missing VPS_HOST"
+          [ -n "$USER" ] || missing="$missing VPS_USER"
+          [ -n "$KEY" ] || [ -n "$PASSWORD" ] || missing="$missing VPS_SSH_KEY-or-VPS_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secret(s):$missing — see the comments at the top of .github/workflows/deploy.yml"
+            exit 1
+          fi
+
+      - name: Prepare SSH
+        env:
+          HOST: ${{ secrets.VPS_HOST }}
+          KEY: ${{ secrets.VPS_SSH_KEY }}
+          HOST_KEY: ${{ secrets.VPS_SSH_HOST_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+
+          if [ -n "$HOST_KEY" ]; then
+            printf '%s\n' "$HOST_KEY" > ~/.ssh/known_hosts
+            echo "STRICT=yes" >> "$GITHUB_ENV"
+            echo "Host key pinned from VPS_SSH_HOST_KEY."
+          else
+            echo "STRICT=accept-new" >> "$GITHUB_ENV"
+            echo "::warning::VPS_SSH_HOST_KEY is not set — this run trusts whatever host answers. Add it (ssh-keyscan -t ed25519 $HOST) to pin the server's identity."
+          fi
+
+          if [ -n "$KEY" ]; then
+            printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+            chmod 600 ~/.ssh/id_deploy
+            echo "AUTH=key" >> "$GITHUB_ENV"
+          else
+            sudo apt-get update -qq && sudo apt-get install -y -qq sshpass
+            echo "AUTH=password" >> "$GITHUB_ENV"
+          fi
+
+      - name: Run the update script on the server
+        env:
+          HOST: ${{ secrets.VPS_HOST }}
+          USER: ${{ secrets.VPS_USER }}
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
+          BRANCH: ${{ inputs.branch }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}.git
+        run: |
+          set -euo pipefail
+          # The script is fetched from the very commit being deployed, so the
+          # deploy procedure and the code it deploys always match.
+          REMOTE_CMD="set -e
+            curl -fsSL -o /root/update.sh '${{ github.server_url }}/${{ github.repository }}/raw/${BRANCH}/deploy/update.sh'
+            bash /root/update.sh '${REPO_URL}' '${BRANCH}'"
+
+          SSH_OPTS="-o StrictHostKeyChecking=${STRICT} -o UserKnownHostsFile=$HOME/.ssh/known_hosts -o ConnectTimeout=20 -o ServerAliveInterval=30"
+
+          if [ "$AUTH" = "key" ]; then
+            ssh $SSH_OPTS -i ~/.ssh/id_deploy "$USER@$HOST" "$REMOTE_CMD"
+          else
+            sshpass -e ssh $SSH_OPTS -o PreferredAuthentications=password -o PubkeyAuthentication=no "$USER@$HOST" "$REMOTE_CMD"
+          fi
+
+      - name: Check the site is up
+        env:
+          URL: ${{ vars.SITE_URL || 'https://cv.31.97.72.28.sslip.io/' }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 10); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$URL" || echo 000)
+            echo "attempt $attempt: $code"
+            [ "$code" = "200" ] && exit 0
+            sleep 6
+          done
+          echo "::error::$URL did not return 200 after the deploy."
+          exit 1
