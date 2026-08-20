@@ -15,6 +15,7 @@ import {
   Check,
 } from "lucide-react";
 import CVPreview from "@/components/CVPreview";
+import DownloadMenu from "@/components/DownloadMenu";
 import { TEMPLATES, DEFAULT_TEMPLATE_ID, resolveTemplateId } from "@/lib/cvTemplates";
 import {
   emptyCvData,
@@ -22,7 +23,8 @@ import {
   blankEducation,
   blankCertification,
 } from "@/lib/cvDefaults";
-import { Field, TextArea, Checkbox } from "./fields";
+import { Field, TextArea, Checkbox, AutoTextArea } from "./fields";
+import MajorField from "./MajorField";
 import SectionTitleField from "./SectionTitleField";
 import CustomSections from "./CustomSections";
 import CvSettingsPanel from "./CvSettingsPanel";
@@ -335,13 +337,19 @@ export default function BuildWizard() {
           {/* Personal details */}
           {step === 0 && (
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label={t("common.fullName")} value={data.personal.fullName} onChange={(v) => setPersonal("fullName", v)} placeholder="e.g. Layla A. Khalil" />
-              <Field label={t("builder.fields.jobTitle")} value={data.personal.jobTitle} onChange={(v) => setPersonal("jobTitle", v)} placeholder="Frontend Developer" />
-              <Field label={t("builder.fields.emailAddr")} type="email" value={data.personal.email} onChange={(v) => setPersonal("email", v)} placeholder="name@email.com" />
-              <Field label={t("builder.fields.phone")} value={data.personal.phone} onChange={(v) => setPersonal("phone", v)} placeholder="+970 59..." />
-              <Field label={t("builder.fields.location")} value={data.personal.location} onChange={(v) => setPersonal("location", v)} placeholder="Ramallah, Palestine" />
-              <Field label={t("builder.fields.linkedin", { optional: t("common.optional") })} value={data.personal.linkedin} onChange={(v) => setPersonal("linkedin", v)} placeholder="linkedin.com/in/..." />
-              <Field label={t("builder.fields.website", { optional: t("common.optional") })} value={data.personal.website} onChange={(v) => setPersonal("website", v)} placeholder="example.com" />
+              <Field label={t("common.fullName")} singleLine value={data.personal.fullName} onChange={(v) => setPersonal("fullName", v)} placeholder="e.g. Layla A. Khalil" />
+              <MajorField
+                label={t("builder.fields.jobTitle")}
+                cvLanguage={cvLang}
+                value={data.personal.jobTitle}
+                onChange={(v) => setPersonal("jobTitle", v)}
+                placeholder={t("builder.fields.jobTitlePlaceholder")}
+              />
+              <Field label={t("builder.fields.emailAddr")} singleLine type="email" value={data.personal.email} onChange={(v) => setPersonal("email", v)} placeholder="name@email.com" />
+              <Field label={t("builder.fields.phone")} singleLine value={data.personal.phone} onChange={(v) => setPersonal("phone", v)} placeholder="+970 59..." />
+              <Field label={t("builder.fields.location")} singleLine value={data.personal.location} onChange={(v) => setPersonal("location", v)} placeholder="Ramallah, Palestine" />
+              <Field label={t("builder.fields.linkedin", { optional: t("common.optional") })} singleLine value={data.personal.linkedin} onChange={(v) => setPersonal("linkedin", v)} placeholder="linkedin.com/in/..." />
+              <Field label={t("builder.fields.website", { optional: t("common.optional") })} singleLine value={data.personal.website} onChange={(v) => setPersonal("website", v)} placeholder="example.com" />
             </div>
           )}
 
@@ -374,12 +382,18 @@ export default function BuildWizard() {
                     )}
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <Field label={t("builder.fields.degree")} value={ed.degree} onChange={(v) => updateItem("education", i, "degree", v)} placeholder="BSc in Software Engineering" />
+                    <MajorField
+                      label={t("builder.fields.degree")}
+                      cvLanguage={cvLang}
+                      value={ed.degree}
+                      onChange={(v) => updateItem("education", i, "degree", v)}
+                      placeholder="BSc in Software Engineering"
+                    />
                     <Field label={t("builder.fields.institution")} value={ed.institution} onChange={(v) => updateItem("education", i, "institution", v)} placeholder="Birzeit University" />
-                    <Field label={t("builder.fields.location")} value={ed.location} onChange={(v) => updateItem("education", i, "location", v)} placeholder="Birzeit" />
+                    <Field label={t("builder.fields.location")} singleLine value={ed.location} onChange={(v) => updateItem("education", i, "location", v)} placeholder="Birzeit" />
                     <div className="grid grid-cols-2 gap-3">
-                      <Field label={t("builder.fields.from")} value={ed.startDate} onChange={(v) => updateItem("education", i, "startDate", v)} placeholder="2015" />
-                      <Field label={t("builder.fields.to")} value={ed.endDate} onChange={(v) => updateItem("education", i, "endDate", v)} placeholder="2019" />
+                      <Field label={t("builder.fields.from")} singleLine value={ed.startDate} onChange={(v) => updateItem("education", i, "startDate", v)} placeholder="2015" />
+                      <Field label={t("builder.fields.to")} singleLine value={ed.endDate} onChange={(v) => updateItem("education", i, "endDate", v)} placeholder="2019" />
                     </div>
                     <div className="sm:col-span-2">
                       <Field label={t("builder.fields.details", { optional: t("common.optional") })} value={ed.details} onChange={(v) => updateItem("education", i, "details", v)} placeholder="GPA, honours, graduation project..." />
@@ -416,10 +430,10 @@ export default function BuildWizard() {
                   <div className="grid gap-3 sm:grid-cols-2">
                     <Field label={t("builder.fields.jobTitle")} value={ex.jobTitle} onChange={(v) => updateItem("experiences", i, "jobTitle", v)} placeholder="Senior Frontend Developer" />
                     <Field label={t("builder.fields.company")} value={ex.company} onChange={(v) => updateItem("experiences", i, "company", v)} placeholder="Tech Solutions" />
-                    <Field label={t("builder.fields.location")} value={ex.location} onChange={(v) => updateItem("experiences", i, "location", v)} placeholder="Ramallah" />
+                    <Field label={t("builder.fields.location")} singleLine value={ex.location} onChange={(v) => updateItem("experiences", i, "location", v)} placeholder="Ramallah" />
                     <div className="grid grid-cols-2 gap-3">
-                      <Field label={t("builder.fields.from")} value={ex.startDate} onChange={(v) => updateItem("experiences", i, "startDate", v)} placeholder="2022" />
-                      <Field label={t("builder.fields.to")} value={ex.endDate} onChange={(v) => updateItem("experiences", i, "endDate", v)} placeholder="2024" />
+                      <Field label={t("builder.fields.from")} singleLine value={ex.startDate} onChange={(v) => updateItem("experiences", i, "startDate", v)} placeholder="2022" />
+                      <Field label={t("builder.fields.to")} singleLine value={ex.endDate} onChange={(v) => updateItem("experiences", i, "endDate", v)} placeholder="2024" />
                     </div>
                   </div>
                   <div className="mt-2">
@@ -429,13 +443,12 @@ export default function BuildWizard() {
                     <span className="field-label">{t("builder.fields.achievements")}</span>
                     {(ex.bullets || []).map((b, bi) => (
                       <div key={bi} className="mb-2 flex gap-2">
-                        <input
-                          className="field-input"
-                          value={b || ""}
+                        <AutoTextArea
+                          value={b}
                           placeholder={t("builder.fields.achievementPlaceholder")}
-                          onChange={(e) => {
+                          onChange={(v) => {
                             const bullets = [...(ex.bullets || [])];
-                            bullets[bi] = e.target.value;
+                            bullets[bi] = v;
                             updateItem("experiences", i, "bullets", bullets);
                           }}
                         />
@@ -465,6 +478,7 @@ export default function BuildWizard() {
                     >
                       {t("builder.fields.addBullet")}
                     </button>
+                    <p className="mt-1 text-xs text-slate-400">{t("builder.fields.lineHint")}</p>
                   </div>
                 </div>
               ))}
@@ -516,10 +530,10 @@ export default function BuildWizard() {
               {data.languages.map((lg, i) => (
                 <div key={i} className="flex items-end gap-2">
                   <div className="flex-1">
-                    <Field label={t("builder.fields.languageName")} value={lg.name} onChange={(v) => updateItem("languages", i, "name", v)} placeholder="English" />
+                    <Field label={t("builder.fields.languageName")} singleLine value={lg.name} onChange={(v) => updateItem("languages", i, "name", v)} placeholder="English" />
                   </div>
                   <div className="flex-1">
-                    <Field label={t("builder.fields.level")} value={lg.level} onChange={(v) => updateItem("languages", i, "level", v)} placeholder="Fluent" />
+                    <Field label={t("builder.fields.level")} singleLine value={lg.level} onChange={(v) => updateItem("languages", i, "level", v)} placeholder="Fluent" />
                   </div>
                   {data.languages.length > 1 && (
                     <button
@@ -557,7 +571,7 @@ export default function BuildWizard() {
                   <div className="grid gap-3 sm:grid-cols-3">
                     <Field label={t("builder.fields.certName")} value={c.name} onChange={(v) => updateItem("certifications", i, "name", v)} placeholder="Meta Front-End" />
                     <Field label={t("builder.fields.issuer")} value={c.issuer} onChange={(v) => updateItem("certifications", i, "issuer", v)} placeholder="Coursera" />
-                    <Field label={t("builder.fields.year")} value={c.date} onChange={(v) => updateItem("certifications", i, "date", v)} placeholder="2023" />
+                    <Field label={t("builder.fields.year")} singleLine value={c.date} onChange={(v) => updateItem("certifications", i, "date", v)} placeholder="2023" />
                   </div>
                 </div>
               ))}
@@ -622,6 +636,17 @@ export default function BuildWizard() {
                 {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
                 {saving ? t("common.saving") : editId ? t("builder.saveChanges") : t("builder.saveCv")}
               </button>
+
+              {/* Downloads read the saved copy, so they only appear once there
+                  is one — and say so while there are unsaved edits. */}
+              {editId && (
+                <div>
+                  <DownloadMenu cvId={editId} align="start" />
+                  <p className="mt-2 text-center text-xs text-slate-400">
+                    {dirty ? t("download.saveFirst") : t("download.matchesPreview")}
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>

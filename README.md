@@ -2,7 +2,8 @@
 
 A free web app where users sign in with **email & password**, fill in a guided
 multi-step form, watch a **live preview** of their CV, choose from several
-modern **ATS-friendly** templates, and download a polished **PDF** — in English,
+modern **ATS-friendly** templates, and download the result as a polished **PDF**,
+an editable **Word (.docx)** file, or **LaTeX** source — in English or Arabic,
 accepted in Palestine and worldwide. It includes a full **admin dashboard** with
 user management, role assignment, and visibility into every CV.
 
@@ -46,9 +47,17 @@ user management, role assignment, and visibility into every CV.
 - **Never lose your work** — the builder autosaves every change to
   `localStorage`, offers the draft back if you return, and warns before you
   close the tab with unsaved changes.
-- **PDF export** — generated through a real headless Chrome (Puppeteer) shared
-  across requests, so the download matches the preview exactly and a burst of
-  downloads does not spawn a browser per request.
+- **Three download formats, one layout** — PDF (a real headless Chrome renders
+  the same HTML as the preview), Word `.docx` (native OOXML, editable in Word),
+  and LaTeX `.tex` (readable source to compile or edit). All three are laid out
+  from one document model and one type scale, so they carry the same content,
+  fonts, sizes, spacing and rules. See "Export formats" below.
+- **Write on more than one line** — every prose field (job title / major,
+  degree, achievements, custom-section entries) accepts real line breaks, and
+  the break survives into all four outputs.
+- **176 majors, still free text** — the degree and job-title fields offer a
+  searchable catalogue of fields of study in both languages; picking one fills
+  the box, and the box stays fully editable afterwards.
 - **Admin dashboard** — overview stats + 30-day signups chart, a user table
   with inline role management, and a CV browser (view / download any CV).
 - **Modern green UI** — clean light theme with scroll-reveal and hover motion,
@@ -276,7 +285,7 @@ src/
     privacy/ terms/    # legal pages
     api/
       auth/            # NextAuth, register, verify-email, resend-verification
-      cv/              # CRUD + /[id]/pdf
+      cv/              # CRUD + /[id]/pdf, /[id]/docx, /[id]/latex
       user/delete/     # account self-deletion
       admin/           # stats, users, role changes, cvs, audit-logs
     error.js           # friendly route error boundary (replaces blank error page)
@@ -286,8 +295,11 @@ src/
     build/
       BuildWizard.js   # the 9-step builder
       CustomSections.js# user-defined section editor
+      MajorField.js    # major / specialisation box + searchable catalogue
       SectionTitleField.js # rename any built-in heading
+      fields.js        # inputs, incl. the auto-growing multi-line text box
       useCvDraft.js    # localStorage autosave + draft restore
+    DownloadMenu.js    # PDF / Word / LaTeX download menu
     Reveal.js          # scroll-reveal animation wrapper
     Footer.js          # footer (with "Made by Jibreel Bornat")
     ...                # other UI components
@@ -299,7 +311,13 @@ src/
     rateLimit.js       # in-memory rate limiter
     audit.js           # audit logging
     security.js        # same-origin (CSRF) check
+    cvDocModel.js      # format-neutral document model — what every export renders
+    cvTypography.js    # the type scale + vertical rhythm shared by all formats
     cvTemplates.js     # CV HTML/CSS generator — renders a CV to a full document
+    cvDocx.js          # Word (.docx) generator (OOXML via `docx`)
+    cvLatex.js         # LaTeX (.tex) generator
+    cvExport.server.js # shared auth / rate-limit / filename plumbing for downloads
+    cvMajors.js        # the majors catalogue (EN/AR), grouped by faculty
     cvTemplateMeta.js  # the 5 templates: fonts, accents, section order, legacy ids
     cvSections.js      # standard section headings + rename/creation presets
     validations/cv.js  # Zod schema — normalises all CV input before it is stored
@@ -312,6 +330,48 @@ src/
   lib/cvFonts.js       # Cairo delivery: URL for preview, base64 for PDF
 public/fonts/          # vendored Cairo subsets (Arabic + Latin), OFL 1.1
 ```
+
+## Export formats
+
+A CV can be downloaded three ways, and all three must look like the live
+preview. They stay in step because none of them re-decides what a CV contains
+or how big its type is:
+
+```
+                     cvDocModel.js          cvTypography.js
+                (sections, order, headings)  (sizes, rules, spacing)
+                            |                        |
+        +-------------------+------------+-----------+-----------+
+        |                   |            |                       |
+   cvTemplates.js      cvTemplates.js  cvDocx.js             cvLatex.js
+   (live preview)      (print HTML)    (.docx / OOXML)       (.tex source)
+        |                   |
+     <iframe>          Puppeteer → PDF
+```
+
+- **`cvDocModel.js`** resolves the template's section order, the user's renamed
+  headings, the CV language and the date strings **once**. Every renderer draws
+  the blocks it is handed and decides nothing about their content or order.
+- **`cvTypography.js`** holds each template's effective point sizes, rule widths
+  and margins — the same numbers the stylesheet applies.
+  `tests/cvTypography.test.js` parses the generated CSS and asserts the table
+  still matches it, so the Word and LaTeX exports cannot silently drift away
+  from the PDF.
+
+| Format | Route | Notes |
+| --- | --- | --- |
+| PDF | `/api/cv/[id]/pdf` | Headless Chrome renders the preview's own HTML. |
+| Word | `/api/cv/[id]/docx` | Native OOXML: A4, 0.75in margins, the template's font and accent, real line breaks, `keepNext`/`keepLines` so entries do not split across pages. |
+| LaTeX | `/api/cv/[id]/latex` | A readable `article` document with one macro per block type. Compile English CVs with `pdflatex`, Arabic with `xelatex` (the file says which in its header). |
+
+Two things to know about fonts:
+
+- The Latin faces (Arial, Calibri, Georgia, Garamond) ship with Word, so a Word
+  download matches the PDF as-is. LaTeX substitutes the standard TeX equivalents
+  (`helvet`, `carlito`, `tgpagella`, `ebgaramond`).
+- Arabic CVs are set in **Cairo**, which the site vendors but Word does not
+  install. Word will substitute a system Arabic face unless Cairo is installed
+  (it is free from Google Fonts); the PDF is unaffected either way.
 
 ## Security headers
 

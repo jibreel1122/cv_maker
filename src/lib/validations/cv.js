@@ -27,7 +27,12 @@ import {
 // --- Limits -----------------------------------------------------------------
 
 export const LIMITS = {
-  shortText: 200, // names, titles, dates, single-line fields
+  shortText: 200, // names, dates, single-line fields
+  // Fields the builder lets the user break across lines — a job title, a degree
+  // and its specialisation, an entry heading. They hold a line or three, not a
+  // paragraph, but 200 characters is not enough once someone writes
+  // "BSc in Computer Engineering\nMinor in Applied Mathematics".
+  lineText: 600,
   longText: 2000, // summary, free-text details
   bullet: 500,
   bullets: 20,
@@ -116,7 +121,7 @@ const personalSchema = z.any().transform((v) => {
   const src = v && typeof v === "object" && !Array.isArray(v) ? v : {};
   return {
     fullName: text().parse(src.fullName),
-    jobTitle: text().parse(src.jobTitle),
+    jobTitle: text(LIMITS.lineText).parse(src.jobTitle),
     email: text().parse(src.email),
     phone: text().parse(src.phone),
     location: text().parse(src.location),
@@ -126,8 +131,8 @@ const personalSchema = z.any().transform((v) => {
 });
 
 const experienceSchema = z.object({
-  jobTitle: text(),
-  company: text(),
+  jobTitle: text(LIMITS.lineText),
+  company: text(LIMITS.lineText),
   location: text(),
   startDate: text(),
   endDate: text(),
@@ -136,8 +141,8 @@ const experienceSchema = z.object({
 });
 
 const educationSchema = z.object({
-  degree: text(),
-  institution: text(),
+  degree: text(LIMITS.lineText),
+  institution: text(LIMITS.lineText),
   location: text(),
   startDate: text(),
   endDate: text(),
@@ -150,16 +155,16 @@ const languageSchema = z.object({
 });
 
 const certificationSchema = z.object({
-  name: text(),
-  issuer: text(),
+  name: text(LIMITS.lineText),
+  issuer: text(LIMITS.lineText),
   date: text(),
 });
 
 // A custom section item. Deliberately generic so one shape covers projects,
 // volunteering, publications, awards, and anything else a user invents.
 const customItemSchema = z.object({
-  title: text(),
-  subtitle: text(),
+  title: text(LIMITS.lineText),
+  subtitle: text(LIMITS.lineText),
   dateRange: text(),
   location: text(),
   descriptionBullets: textList(LIMITS.bullets, LIMITS.bullet),

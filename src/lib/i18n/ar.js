@@ -233,6 +233,8 @@ const ar = {
 
     fields: {
       jobTitle: "المسمى الوظيفي",
+      jobTitlePlaceholder: "مطوّر واجهات — أو تخصصك الجامعي",
+      lineHint: "اضغط Enter لسطر جديد، واستخدم الزر أعلاه لإضافة نقطة منفصلة.",
       emailAddr: "البريد الإلكتروني",
       phone: "رقم الهاتف",
       location: "الموقع (المدينة، الدولة)",
@@ -265,6 +267,13 @@ const ar = {
       qualification: "المؤهل رقم {n}",
       experienceN: "الخبرة رقم {n}",
       certificateN: "الشهادة رقم {n}",
+    },
+
+    majors: {
+      browse: "تصفّح {n} تخصصًا",
+      editHint: "اختر تخصصًا لتعبئة الحقل ثم عدّله كما تشاء — أو اكتب تخصصك بنفسك.",
+      searchPlaceholder: "ابحث عن تخصص…",
+      noMatch: "لا يوجد تخصص مطابق — اكتب تخصصك يدويًا.",
     },
 
     custom: {
@@ -308,7 +317,8 @@ const ar = {
       densitySpacious: "متباعد",
       densitySpaciousHint: "أسهل للقراءة",
       pageCount: "حاليًا نحو {n} صفحة",
-      readyNote: "سيرتك الذاتية جاهزة للتحميل كملف PDF أنيق — مجانًا وبدون علامة مائية.",
+      readyNote:
+        "سيرتك الذاتية جاهزة للتحميل كملف PDF أنيق، أو ملف Word قابل للتعديل، أو شيفرة LaTeX — مجانًا وبدون علامة مائية.",
     },
 
     pageBreak: "نهاية الصفحة {n}",
@@ -361,6 +371,18 @@ const ar = {
     nextPage: "التالي",
     pageOf: "صفحة {page} من {total}",
     showing: "عرض {from}–{to} من {total}",
+  },
+
+  download: {
+    button: "تحميل",
+    pdf: "PDF",
+    pdfHint: "جاهز للإرسال إلى أصحاب العمل",
+    word: "Word (.docx)",
+    wordHint: "قابل للتعديل في Word — بالتنسيق نفسه",
+    latex: "LaTeX (.tex)",
+    latexHint: "شيفرة المصدر للتعديل أو الترجمة بنفسك",
+    saveFirst: "التحميل يعتمد على آخر نسخة محفوظة — احفظ لتضمين هذه التعديلات.",
+    matchesPreview: "الصيغ الثلاث مطابقة تمامًا للمعاينة.",
   },
 
   preview: {

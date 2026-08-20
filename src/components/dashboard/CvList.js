@@ -2,14 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import {
-  FileText,
-  Plus,
-  Download,
-  Pencil,
-  Trash2,
-  Loader2,
-} from "lucide-react";
+import { FileText, Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import DownloadMenu from "@/components/DownloadMenu";
 import { templateName } from "@/lib/cvTemplateMeta";
 import { useLocale } from "@/components/i18n/LocaleProvider";
 
@@ -119,12 +113,7 @@ export default function CvList() {
                 >
                   <Pencil className="h-4 w-4" /> {t("dashboard.edit")}
                 </Link>
-                <a
-                  href={`/api/cv/${cv.id}/pdf`}
-                  className="btn-ghost flex-1 justify-center text-sm text-brand-700"
-                >
-                  <Download className="h-4 w-4" /> {t("dashboard.pdf")}
-                </a>
+                <DownloadMenu cvId={cv.id} className="flex-1" compact />
                 <button
                   onClick={() => handleDelete(cv.id)}
                   disabled={busyId === cv.id}

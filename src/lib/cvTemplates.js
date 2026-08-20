@@ -27,14 +27,8 @@
 // page margin.
 // ============================================================================
 
-import {
-  defaultSectionTitle,
-  cvLanguage,
-  isRtlCv,
-  densityScale,
-  customLayout,
-  PRESENT_LABEL,
-} from "@/lib/cvSections";
+import { densityScale } from "@/lib/cvSections";
+import { buildCvModel } from "@/lib/cvDocModel";
 import {
   TEMPLATES,
   PAGE_MARGIN_IN,
@@ -85,38 +79,6 @@ function esc(value) {
     .replace(/'/g, "&#39;");
 }
 
-// Normalises any value to a trimmed string. Never throws.
-function s(value) {
-  if (typeof value === "string") return value.trim();
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  return "";
-}
-
-// Normalises any value to an array. Never throws.
-function arr(value) {
-  return Array.isArray(value) ? value : [];
-}
-
-function fmtRange(start, end, current, language) {
-  const from = esc(s(start));
-  const to = current ? esc(PRESENT_LABEL[cvLanguage(language)]) : esc(s(end));
-  if (!from && !to) return "";
-  if (!from) return to;
-  if (!to) return from;
-  return `${from} — ${to}`;
-}
-
-// Resolves a section heading: the user's override if they set one, else the
-// standard label in the CV's own language.
-function heading(cvData, key) {
-  const custom = s(cvData?.sectionTitles?.[key]);
-  return custom || defaultSectionTitle(key, cvData?.settings?.language) || "";
-}
-
-function lang(cvData) {
-  return cvLanguage(cvData?.settings?.language);
-}
-
 // `inner` is trusted HTML assembled by the renderers below; `title` is user text.
 function section(title, inner) {
   if (!inner) return "";
@@ -124,28 +86,22 @@ function section(title, inner) {
 }
 
 function bulletList(items, className = "bullets") {
-  const clean = arr(items).map(s).filter(Boolean);
-  if (!clean.length) return "";
-  return `<ul class="${className}">${clean.map((b) => `<li>${esc(b)}</li>`).join("")}</ul>`;
+  if (!items.length) return "";
+  return `<ul class="${className}">${items.map((b) => `<li>${esc(b)}</li>`).join("")}</ul>`;
 }
 
 // A dated entry: bold title on the left, date on the right, subtitle beneath.
 // Shared by experience, education, certifications and custom sections so every
 // block on the page aligns identically.
-function entry({ title, date, subtitleParts, detail, bullets }) {
-  const t = esc(s(title));
-  const d = esc(s(date));
-  const sub = arr(subtitleParts).map(s).filter(Boolean).map(esc).join(" — ");
-  const det = s(detail);
-  if (!t && !sub && !det && !arr(bullets).map(s).filter(Boolean).length) return "";
+function entry({ title, date, subtitle, detail, bullets }) {
   return `
     <div class="item">
       <div class="item-head">
-        <span class="item-title">${t}</span>
-        ${d ? `<span class="item-date">${d}</span>` : ""}
+        <span class="item-title">${esc(title)}</span>
+        ${date ? `<span class="item-date">${esc(date)}</span>` : ""}
       </div>
-      ${sub ? `<div class="item-sub">${sub}</div>` : ""}
-      ${det ? `<p class="item-detail">${esc(det)}</p>` : ""}
+      ${subtitle ? `<div class="item-sub">${esc(subtitle)}</div>` : ""}
+      ${detail ? `<p class="item-detail">${esc(detail)}</p>` : ""}
       ${bulletList(bullets)}
     </div>`;
 }
@@ -237,8 +193,15 @@ function buildStyles(tpl, mode, { rtl = false, density = 1, fontFaceCss = "" } =
     .item{break-inside:avoid;page-break-inside:avoid;}
     .section-title{break-after:avoid;page-break-after:avoid;}
 
-    /* Free-text sections: preserve the user's own line breaks. */
-    .free-text{white-space:pre-wrap;}
+    /* Every field the user types prose into keeps their own line breaks, so a
+       two-line job title or a multi-line bullet comes out on the CV exactly as
+       it was typed. Long unbroken strings (URLs, IDs) wrap instead of running
+       off the page. */
+    .name,.job-title,.summary-text,.item-title,.item-sub,.item-detail,
+    .bullets li,.free-text{white-space:pre-wrap;overflow-wrap:break-word;}
+    /* A flex child will not shrink below its content width without this, which
+       would push the date off the page when a title runs long. */
+    .item-title{min-width:0;}
 
     @page{size:A4;}
   `;
@@ -320,29 +283,24 @@ function buildStyles(tpl, mode, { rtl = false, density = 1, fontFaceCss = "" } =
 
 // --- Section renderers -------------------------------------------------------
 
-function renderContact(p, tpl) {
-  const parts = [p.email, p.phone, p.location, p.linkedin, p.website]
-    .map(s)
-    .filter(Boolean)
-    .map((v) => `<span>${esc(v)}</span>`);
-  if (!parts.length) return "";
+function renderContact(contacts, tpl) {
+  if (!contacts.length) return "";
+  const parts = contacts.map((v) => `<span>${esc(v)}</span>`);
   // The two-column header stacks contact lines instead of separating them.
   const sep = tpl.id === "modern-professional" ? "" : '<span class="sep">|</span>';
   return `<div class="contact">${parts.join(sep)}</div>`;
 }
 
-function renderHeader(data, tpl) {
-  const p = data.personal || {};
-  const name = esc(s(p.fullName)) || "Full Name";
-  const title = s(p.jobTitle);
-  const contact = renderContact(p, tpl);
+function renderHeader(model, tpl) {
+  const { name, jobTitle } = model.header;
+  const contact = renderContact(model.header.contacts, tpl);
 
   if (tpl.id === "modern-professional") {
     return `
       <header class="header">
         <div class="header-left">
-          <div class="name">${name}</div>
-          ${title ? `<div class="job-title">${esc(title)}</div>` : ""}
+          <div class="name">${esc(name)}</div>
+          ${jobTitle ? `<div class="job-title">${esc(jobTitle)}</div>` : ""}
         </div>
         <div class="header-right">${contact}</div>
       </header>`;
@@ -350,115 +308,25 @@ function renderHeader(data, tpl) {
 
   return `
     <header class="header">
-      <div class="name">${name}</div>
-      ${title ? `<div class="job-title">${esc(title)}</div>` : ""}
+      <div class="name">${esc(name)}</div>
+      ${jobTitle ? `<div class="job-title">${esc(jobTitle)}</div>` : ""}
       ${contact}
     </header>`;
 }
 
-function renderSummary(data) {
-  const text = s(data.summary);
-  if (!text) return "";
-  return section(heading(data, "summary"), `<p class="summary-text">${esc(text)}</p>`);
+// One section of the document model. `kind` is what the block *is*; the CSS
+// class is how this format draws it.
+function renderSection(block) {
+  if (block.kind === "text") {
+    // "free" is a block of prose the user typed, newlines and all.
+    const cls = block.variant === "free" ? "free-text" : "summary-text";
+    return section(block.title, `<p class="${cls}">${esc(block.text)}</p>`);
+  }
+  if (block.kind === "inline") {
+    return section(block.title, bulletList(block.items, "inline-list"));
+  }
+  return section(block.title, block.entries.map(entry).join(""));
 }
-
-function renderExperience(data) {
-  const inner = arr(data.experiences)
-    .map((e) =>
-      entry({
-        title: e?.jobTitle,
-        date: fmtRange(e?.startDate, e?.endDate, e?.current, lang(data)),
-        subtitleParts: [e?.company, e?.location],
-        bullets: e?.bullets,
-      })
-    )
-    .join("");
-  return inner ? section(heading(data, "experience"), inner) : "";
-}
-
-function renderEducation(data) {
-  const inner = arr(data.education)
-    .map((e) =>
-      entry({
-        title: e?.degree,
-        date: fmtRange(e?.startDate, e?.endDate, false, lang(data)),
-        subtitleParts: [e?.institution, e?.location],
-        detail: e?.details,
-      })
-    )
-    .join("");
-  return inner ? section(heading(data, "education"), inner) : "";
-}
-
-function renderSkills(data) {
-  const list = bulletList(data.skills, "inline-list");
-  return list ? section(heading(data, "skills"), list) : "";
-}
-
-function renderLanguages(data) {
-  const clean = arr(data.languages)
-    .map((l) => {
-      const name = s(l?.name);
-      if (!name) return "";
-      const level = s(l?.level);
-      return level ? `${name} — ${level}` : name;
-    })
-    .filter(Boolean);
-  const list = bulletList(clean, "inline-list");
-  return list ? section(heading(data, "languages"), list) : "";
-}
-
-function renderCertifications(data) {
-  const inner = arr(data.certifications)
-    .map((c) =>
-      entry({
-        title: c?.name,
-        date: c?.date,
-        subtitleParts: [c?.issuer],
-      })
-    )
-    .join("");
-  return inner ? section(heading(data, "certifications"), inner) : "";
-}
-
-// User-defined sections, rendered with the same entry shape as the built-ins so
-// they are visually indistinguishable from a native section.
-function renderCustomSections(data) {
-  return arr(data.customSections)
-    .map((sec) => {
-      const title = s(sec?.title);
-      if (!title) return "";
-
-      // Free text is one block of prose the user typed, newlines and all.
-      if (customLayout(sec?.layout) === "freeText") {
-        const body = s(sec?.text);
-        return body ? section(title, `<p class="free-text">${esc(body)}</p>`) : "";
-      }
-
-      const inner = arr(sec?.items)
-        .map((it) =>
-          entry({
-            title: it?.title,
-            date: it?.dateRange,
-            subtitleParts: [it?.subtitle, it?.location],
-            bullets: it?.descriptionBullets,
-          })
-        )
-        .join("");
-      return inner ? section(title, inner) : "";
-    })
-    .join("");
-}
-
-const RENDERERS = {
-  summary: renderSummary,
-  experience: renderExperience,
-  education: renderEducation,
-  skills: renderSkills,
-  languages: renderLanguages,
-  certifications: renderCertifications,
-  custom: renderCustomSections,
-};
 
 // --- Entry point -------------------------------------------------------------
 
@@ -471,35 +339,33 @@ export function buildCvHtml(
   templateId,
   { mode = "preview", fontFaceCss = "" } = {}
 ) {
-  const tpl = getTemplate(templateId);
   // No schema pass here on purpose. Writes are validated at the API boundary,
-  // and every helper below (`s`, `arr`, `esc`, `bulletList`) is total — it
-  // accepts any value and yields a string. That keeps the renderer safe against
-  // legacy records without pulling a validation library into the browser bundle
-  // that ships this module to the preview.
-  const data = cvData && typeof cvData === "object" ? cvData : {};
+  // and the document model is total — it accepts any value and yields strings.
+  // That keeps the renderer safe against legacy records without pulling a
+  // validation library into the browser bundle that ships this module to the
+  // preview.
+  const model = buildCvModel(cvData, templateId);
+  const tpl = model.template;
 
-  const language = lang(data);
-  const rtl = isRtlCv(language);
   const styles = buildStyles(tpl, mode, {
-    rtl,
-    density: densityScale(data?.settings?.density),
+    rtl: model.rtl,
+    density: densityScale(model.density),
     fontFaceCss,
   });
 
-  const body = tpl.order.map((key) => RENDERERS[key]?.(data) || "").join("");
+  const body = model.sections.map(renderSection).join("");
 
   return `<!DOCTYPE html>
-<html lang="${language}" dir="${rtl ? "rtl" : "ltr"}">
+<html lang="${model.language}" dir="${model.rtl ? "rtl" : "ltr"}">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>${esc(s(data.personal?.fullName)) || "CV"}</title>
+<title>${esc(model.documentTitle)}</title>
 <style>${styles}</style>
 </head>
 <body>
   <div class="page">
-    ${renderHeader(data, tpl)}
+    ${renderHeader(model, tpl)}
     ${body}
   </div>
 </body>

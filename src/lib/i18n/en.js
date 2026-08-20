@@ -232,6 +232,8 @@ const en = {
 
     fields: {
       jobTitle: "Job title",
+      jobTitlePlaceholder: "Frontend Developer — or your major / specialisation",
+      lineHint: "Press Enter for a new line; use the button above to start a separate point.",
       emailAddr: "Email",
       phone: "Phone",
       location: "Location (city, country)",
@@ -265,6 +267,13 @@ const en = {
       qualification: "Qualification #{n}",
       experienceN: "Experience #{n}",
       certificateN: "Certificate #{n}",
+    },
+
+    majors: {
+      browse: "Browse {n} majors",
+      editHint: "Pick one to fill the field, then edit it however you like — or just type your own.",
+      searchPlaceholder: "Search majors…",
+      noMatch: "No major matches that search — type your own instead.",
     },
 
     custom: {
@@ -309,7 +318,7 @@ const en = {
       densitySpaciousHint: "Easier to read",
       pageCount: "Currently about {n} page(s)",
       readyNote:
-        "Your CV is ready to download as a polished PDF — free, with no watermark.",
+        "Your CV is ready to download as a polished PDF, an editable Word file, or LaTeX source — free, with no watermark.",
     },
 
     pageBreak: "Page {n} ends here",
@@ -362,6 +371,18 @@ const en = {
     nextPage: "Next",
     pageOf: "Page {page} of {total}",
     showing: "Showing {from}–{to} of {total}",
+  },
+
+  download: {
+    button: "Download",
+    pdf: "PDF",
+    pdfHint: "Ready to send to employers",
+    word: "Word (.docx)",
+    wordHint: "Editable in Word — same layout",
+    latex: "LaTeX (.tex)",
+    latexHint: "Source to compile or edit yourself",
+    saveFirst: "Downloads use your last saved version — save to include these changes.",
+    matchesPreview: "All three formats match the preview exactly.",
   },
 
   preview: {

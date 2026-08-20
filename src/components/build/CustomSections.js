@@ -5,7 +5,7 @@ import { Plus, Trash2, X, LayoutList, AlignLeft, List } from "lucide-react";
 import { customSectionPresets, customLayout } from "@/lib/cvSections";
 import { blankCustomItem } from "@/lib/cvDefaults";
 import { useT } from "@/components/i18n/LocaleProvider";
-import { Field, TextArea } from "./fields";
+import { Field, TextArea, AutoTextArea } from "./fields";
 
 // Editor for user-defined CV sections.
 //
@@ -17,7 +17,7 @@ import { Field, TextArea } from "./fields";
 //             non-technical users, who find field-by-field entry slower than
 //             typing what they already know how to say.
 
-function BulletEditor({ bullets, onChange, placeholder, label, addLabel }) {
+function BulletEditor({ bullets, onChange, placeholder, label, addLabel, hint }) {
   const list = Array.isArray(bullets) ? bullets : [];
 
   return (
@@ -25,13 +25,12 @@ function BulletEditor({ bullets, onChange, placeholder, label, addLabel }) {
       <span className="field-label">{label}</span>
       {list.map((b, i) => (
         <div key={i} className="mb-2 flex gap-2">
-          <input
-            className="field-input"
-            value={b || ""}
+          <AutoTextArea
+            value={b}
             placeholder={placeholder}
-            onChange={(e) => {
+            onChange={(v) => {
               const next = [...list];
-              next[i] = e.target.value;
+              next[i] = v;
               onChange(next);
             }}
           />
@@ -54,6 +53,7 @@ function BulletEditor({ bullets, onChange, placeholder, label, addLabel }) {
       >
         {addLabel}
       </button>
+      {hint && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
     </div>
   );
 }
@@ -186,11 +186,13 @@ function CustomSection({ section, index, onUpdate, onRemove, cvLanguage }) {
                   />
                   <Field
                     label={t("builder.custom.dates")}
+                    singleLine
                     value={item.dateRange}
                     onChange={(v) => updateItem(i, "dateRange", v)}
                   />
                   <Field
                     label={t("builder.fields.location")}
+                    singleLine
                     value={item.location}
                     onChange={(v) => updateItem(i, "location", v)}
                   />
@@ -199,6 +201,7 @@ function CustomSection({ section, index, onUpdate, onRemove, cvLanguage }) {
                   bullets={item.descriptionBullets}
                   label={t("builder.custom.description")}
                   addLabel={t("builder.custom.addLine")}
+                  hint={t("builder.fields.lineHint")}
                   placeholder={t("builder.custom.descriptionPlaceholder")}
                   onChange={(v) => updateItem(i, "descriptionBullets", v)}
                 />
