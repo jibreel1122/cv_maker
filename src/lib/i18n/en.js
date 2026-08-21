@@ -47,7 +47,7 @@ const en = {
     titleLine1: "Build a professional CV",
     titleAccent: "that gets accepted",
     subtitle:
-      "Enter your details, watch the live preview, choose a modern template, and download a clean, ATS-friendly PDF — in English or Arabic, accepted in Palestine and all over the world. Completely free.",
+      "Enter your details, watch the live preview, choose a modern template, and download a clean, ATS-friendly CV as PDF, Word or LaTeX — in English or Arabic, accepted in Palestine and all over the world. Completely free.",
     ctaBuild: "Build my CV",
     bullets: ["No profile photo", "Clean single column", "Machine-readable fonts"],
     whyTitle: "Why {brand}?",
@@ -78,7 +78,7 @@ const en = {
       },
       {
         title: "Pick a template & download",
-        desc: "Choose from several modern templates and export a polished PDF instantly.",
+        desc: "Choose from several modern templates and export instantly as PDF, an editable Word file, or LaTeX source.",
       },
     ],
     templatesTitle: "Templates for every field",

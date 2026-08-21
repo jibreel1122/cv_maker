@@ -337,7 +337,7 @@ export default function BuildWizard() {
           {/* Personal details */}
           {step === 0 && (
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label={t("common.fullName")} singleLine value={data.personal.fullName} onChange={(v) => setPersonal("fullName", v)} placeholder="e.g. Layla A. Khalil" />
+              <Field label={t("common.fullName")} singleLine value={data.personal.fullName} onChange={(v) => setPersonal("fullName", v)} placeholder="e.g. Jibreel Bornat" />
               <MajorField
                 label={t("builder.fields.jobTitle")}
                 cvLanguage={cvLang}

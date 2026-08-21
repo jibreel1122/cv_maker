@@ -84,60 +84,57 @@ export const blankCustomItem = {
   descriptionBullets: [""],
 };
 
+// The CV shown in the landing page's animated demo. It is illustrative content
+// for visitors who have not signed in yet — it is never anyone's saved CV, and
+// nothing a user edits in the builder changes it. Edit this object to change
+// what the demo shows.
 export const sampleCvData = {
   settings: { language: DEFAULT_CV_LANGUAGE, density: DEFAULT_DENSITY },
   personal: {
-    fullName: "Layla A. Khalil",
-    jobTitle: "Frontend Developer",
-    email: "layla.khalil@email.com",
+    fullName: "Eng. Jibreel Bornat",
+    jobTitle: "Software Engineer",
+    // A placeholder address on purpose: the landing page is public, and putting
+    // a real inbox on it only collects spam.
+    email: "hello@example.com",
     phone: "+970 59 000 0000",
     location: "Ramallah, Palestine",
-    linkedin: "linkedin.com/in/layla-khalil",
-    website: "laylakhalil.dev",
+    linkedin: "linkedin.com/in/jibreel-bornat",
+    website: "jibreelbornat.dev",
   },
   sectionTitles: blankSectionTitles(),
   summary:
-    "Frontend developer with 4 years of experience building fast, accessible web apps with React and Next.js. Passionate about clean UI, performance, and great user experience.",
+    "Software engineer who builds fast, accessible web applications end to end — from database schema to deployment. Focused on clean architecture, performance, and shipping work people actually use.",
   experiences: [
     {
-      jobTitle: "Senior Frontend Developer",
-      company: "Tech Solutions",
+      jobTitle: "Full-Stack Developer",
+      company: "Independent",
       location: "Ramallah",
       startDate: "2022",
       endDate: "",
       current: true,
       bullets: [
-        "Led a rebuild of the main product UI, improving load speed by 40%.",
-        "Mentored a team of 3 developers and set the code-review standards.",
+        "Designed and shipped web applications end to end, from data model to production deployment.",
+        "Built Bornat CV Maker: bilingual Arabic/English, ATS-friendly templates, and PDF, Word and LaTeX export.",
       ],
-    },
-    {
-      jobTitle: "Frontend Developer",
-      company: "Web Agency",
-      location: "Nablus",
-      startDate: "2020",
-      endDate: "2022",
-      current: false,
-      bullets: ["Delivered 15+ responsive websites for clients across sectors."],
     },
   ],
   education: [
     {
-      degree: "BSc in Software Engineering",
+      degree: "BSc in Computer Engineering",
       institution: "Birzeit University",
       location: "Birzeit",
-      startDate: "2015",
-      endDate: "2019",
+      startDate: "2018",
+      endDate: "2022",
       details: "",
     },
   ],
-  skills: ["JavaScript", "React", "Next.js", "TypeScript", "Tailwind CSS", "Git"],
+  skills: ["JavaScript", "React", "Next.js", "Node.js", "PostgreSQL", "Tailwind CSS", "Git"],
   languages: [
     { name: "Arabic", level: "Native" },
     { name: "English", level: "Fluent" },
   ],
   certifications: [
-    { name: "Meta Front-End Developer", issuer: "Coursera", date: "2023" },
+    { name: "Full-Stack Web Development", issuer: "Coursera", date: "2023" },
   ],
   customSections: [
     {
@@ -146,12 +143,12 @@ export const sampleCvData = {
       text: "",
       items: [
         {
-          title: "Open-source component library",
+          title: "Bornat CV Maker",
           subtitle: "Personal project",
-          dateRange: "2023",
+          dateRange: "2026",
           location: "",
           descriptionBullets: [
-            "Published 30+ accessible React components used by 400+ developers.",
+            "A free bilingual CV builder with a live preview and one-click PDF, Word and LaTeX export.",
           ],
         },
       ],
